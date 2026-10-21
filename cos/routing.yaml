@@ -1,0 +1,11 @@
+# Initial routing policy
+# Grok is the default; local LLM is deferred
+default: grok
+
+routes:
+  - match: ["protocol", "pid", "template", "review", "spec"]
+    executor: grok
+  - match: ["kotlin", "android", "implement", "carapp"]
+    executor: claude
+  - match: ["status", "summary", "log"]
+    executor: grok
