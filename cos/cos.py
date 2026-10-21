@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal local COS — Phase 1 with read/write."""
+"""Minimal local COS — Phase 1 with self-improve."""
 
 import json
 import os
@@ -34,7 +34,6 @@ def log_event(
 
 
 def resolve_safe(rel_path: str) -> Path:
-    """Resolve a relative path and ensure it stays inside ROOT."""
     target = (ROOT / rel_path).resolve()
     if not str(target).startswith(str(ROOT.resolve())):
         raise ValueError("Path escapes workspace root")
@@ -72,7 +71,7 @@ def ask_grok(prompt: str, system: str = None) -> str:
             "You are the local Chief of Staff (COS) described in META-COS.md. "
             "Follow its principles: spec-driven, hierarchical, inspectable, "
             "self-improving, and local-first. Grok is the default executor. "
-            "Be concise and actionable."
+            "Be concise and actionable. When asked to improve a file, return ONLY the complete new file content, no markdown fences, no commentary."
         )
     if not GROK_API_KEY:
         raise RuntimeError("GROK_API_KEY environment variable not set")
@@ -88,7 +87,7 @@ def ask_grok(prompt: str, system: str = None) -> str:
         ],
         "temperature": 0.2,
     }
-    r = requests.post(GROK_URL, headers=headers, json=payload, timeout=90)
+    r = requests.post(GROK_URL, headers=headers, json=payload, timeout=120)
     r.raise_for_status()
     reply = r.json()["choices"][0]["message"]["content"]
     log_event(
@@ -100,16 +99,24 @@ def ask_grok(prompt: str, system: str = None) -> str:
     return reply
 
 
+def print_commands():
+    print("Commands:")
+    print("  help")
+    print("  handoff: <task>")
+    print("  read: <relative/path>")
+    print("  write: <relative/path>")
+    print("  improve: <relative/path> | <instruction>")
+    print("  quit / exit / q")
+    print("  <anything else>  → sent to Grok")
+
+
 def main():
     print("COS ready.")
     print(f"Spec exists: {SPEC.exists()}")
     log_event("startup", "COS started", refs=["specs/META-COS.md"])
 
     print("\nCOS interactive (type 'quit' to exit)")
-    print("Commands:")
-    print("  handoff: <task>")
-    print("  read: <relative/path>")
-    print("  write: <relative/path>")
+    print_commands()
     while True:
         try:
             user_input = input("\nYou: ").strip()
@@ -119,6 +126,11 @@ def main():
         if user_input.lower() in ("quit", "exit", "q"):
             break
         if not user_input:
+            continue
+
+        if user_input.lower() in ("help", "help:", "?"):
+            print_commands()
+            log_event("help", "Printed available commands")
             continue
 
         # Claude hand-off
@@ -171,6 +183,36 @@ def main():
                 print(f"Wrote {path}")
             except Exception as e:
                 print(f"Write failed: {e}")
+            continue
+
+        # Improve file via Grok
+        if user_input.lower().startswith("improve:"):
+            rest = user_input[8:].strip()
+            if "|" not in rest:
+                print("Usage: improve: relative/path | instruction")
+                continue
+            rel_path, instruction = [p.strip() for p in rest.split("|", 1)]
+            try:
+                current = read_file(rel_path)
+                prompt = (
+                    f"Improve the following file according to this instruction:\n{instruction}\n\n"
+                    f"Current content of {rel_path}:\n\n{current}\n\n"
+                    "Return ONLY the complete new file content. No markdown fences, no explanation."
+                )
+                print(f"Asking Grok to improve {rel_path}...")
+                new_content = ask_grok(prompt)
+                # Strip accidental fences if Grok added them
+                if new_content.startswith("```"):
+                    new_content = "\n".join(new_content.split("\n")[1:-1])
+                write_file(rel_path, new_content)
+                log_event(
+                    "self_improve",
+                    f"Improved {rel_path}",
+                    detail={"instruction": instruction},
+                )
+                print(f"Improved and wrote {rel_path}")
+            except Exception as e:
+                print(f"Improve failed: {e}")
             continue
 
         # Normal directive → Grok
