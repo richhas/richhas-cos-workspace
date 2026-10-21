@@ -1,0 +1,8 @@
+# Build / IDE
+.vs/
+*.user
+bin/
+obj/
+
+# Optional: ignore live event log if you only want checkpoint commits
+# cos/event_log.jsonl
