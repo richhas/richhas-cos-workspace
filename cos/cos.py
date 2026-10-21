@@ -33,7 +33,16 @@ def log_event(
     return event
 
 
-def ask_grok(prompt: str, system: str = "You are the local COS assistant.") -> str:
+def ask_grok(prompt: str, system: str = None) -> str:
+    if system is None:
+        system = (
+            "You are the local Chief of Staff (COS) described in META-COS.md. "
+            "Follow its principles: spec-driven, hierarchical, inspectable, "
+            "self-improving, and local-first. Grok is the default executor. "
+            "Be concise and actionable."
+        )
+    # ... rest of the function stays the same
+
     if not GROK_API_KEY:
         raise RuntimeError("GROK_API_KEY environment variable not set")
     headers = {
