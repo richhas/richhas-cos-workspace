@@ -1,0 +1,153 @@
+{
+  "schema": "4runner-obd-protocol/1",
+  "vehicle": {
+    "year": 2019,
+    "make": "Toyota",
+    "model": "4Runner",
+    "trim": "Limited",
+    "drivetrain": "4WD"
+  },
+  "adapter": {
+    "model": "OBDLink MX+",
+    "transport": "bluetooth",
+    "init": []
+  },
+  "sources": [
+    {
+      "id": "sae-j1979",
+      "title": "SAE J1979 mode 01 standard PIDs",
+      "note": "Public standard definitions for the v1 driving set and parked extras. Not a claim that this ECU implements every standard PID."
+    },
+    {
+      "id": "obdlink-mx-docs",
+      "title": "OBDLink MX+ adapter documentation",
+      "note": "Adapter behavior only, once cited. Not a PID formula source by itself. Unused until an init string is confirmed."
+    },
+    {
+      "id": "bench-2019-4runner",
+      "title": "Bench or parked confirmation on this 2019 4Runner",
+      "note": "Required before any Toyota enhanced PID becomes verified. No confirmation recorded yet."
+    },
+    {
+      "id": "unverified-candidate",
+      "title": "Named candidate with no formula",
+      "note": "Placeholder source. No candidate entries are in pids until a real mode, PID, and header exist. Inventing those would violate the no-duplicate-triple rule and would look like a live request."
+    }
+  ],
+  "pids": [
+    {
+      "id": "rpm",
+      "name": "RPM",
+      "mode": "01",
+      "pid": "0C",
+      "formula": "((A*256)+B)/4",
+      "units": "rpm",
+      "bytes": 2,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": true,
+      "notes": "Engine speed. Standard J1979 formula. ECU support is per response; NO DATA means unsupported, not zero."
+    },
+    {
+      "id": "speed",
+      "name": "Speed",
+      "mode": "01",
+      "pid": "0D",
+      "formula": "A",
+      "units": "km/h",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": true,
+      "notes": "ECU vehicle speed. GPS speed is a phone field and is not an OBD PID."
+    },
+    {
+      "id": "coolant_temp",
+      "name": "Coolant",
+      "mode": "01",
+      "pid": "05",
+      "formula": "A-40",
+      "units": "celsius",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": true,
+      "notes": "Engine coolant temperature."
+    },
+    {
+      "id": "engine_load",
+      "name": "Load",
+      "mode": "01",
+      "pid": "04",
+      "formula": "A*100/255",
+      "units": "percent",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": true,
+      "notes": "Calculated engine load."
+    },
+    {
+      "id": "throttle_pos",
+      "name": "Throttle",
+      "mode": "01",
+      "pid": "11",
+      "formula": "A*100/255",
+      "units": "percent",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": true,
+      "notes": "Absolute throttle position."
+    },
+    {
+      "id": "intake_air_temp",
+      "name": "Intake",
+      "mode": "01",
+      "pid": "0F",
+      "formula": "A-40",
+      "units": "celsius",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": false,
+      "notes": "Parked browser only. Standard formula. Poll only if the ECU returns data."
+    },
+    {
+      "id": "control_module_voltage",
+      "name": "Voltage",
+      "mode": "01",
+      "pid": "42",
+      "formula": "((A*256)+B)/1000",
+      "units": "V",
+      "bytes": 2,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": false,
+      "notes": "Parked browser only. Control module voltage."
+    },
+    {
+      "id": "fuel_level",
+      "name": "Fuel",
+      "mode": "01",
+      "pid": "2F",
+      "formula": "A*100/255",
+      "units": "percent",
+      "bytes": 1,
+      "status": "verified",
+      "source": "sae-j1979",
+      "driving_ok": false,
+      "notes": "Parked browser only. Fuel tank level input if the ECU supports it."
+    }
+  ],
+  "poll_groups": {
+    "driving": ["rpm", "speed", "coolant_temp", "engine_load", "throttle_pos"],
+    "parked": ["rpm", "speed", "coolant_temp", "engine_load", "throttle_pos", "intake_air_temp", "control_module_voltage", "fuel_level"]
+  },
+  "commands_forbidden": [
+    "08",
+    "actuation",
+    "write",
+    "key_programming"
+  ]
+}

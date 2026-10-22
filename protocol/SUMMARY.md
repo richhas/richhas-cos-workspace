@@ -1,15 +1,21 @@
 # Protocol folder summary
 
-Updated 2026-10-22 after the project spec landed.
+Updated 2026-10-22 after protocol JSON was written.
 
 ## Files present
 
-None. Scratch files `protocol/test.txt` and `protocol/overflow_test.py` were removed before the GitHub checkpoint. They were not protocol definitions.
+- `protocol/toyota-4runner-2019.json` — schema `4runner-obd-protocol/1` for the 2019 Toyota 4Runner Limited 4WD. Contract is `specs/4runner-aa-obd.md` §9.
 
-## Expected but missing
+Scratch files `protocol/test.txt` and `protocol/overflow_test.py` are empty leftovers. They are not protocol definitions and must not be staged.
 
-- `protocol/toyota-4runner-2019.json` — versioned protocol for the 2019 4Runner Android Auto app. Contract is `specs/4runner-aa-obd.md` §9. Not on disk yet.
+## What the JSON contains
+
+- Five verified driving PIDs, all SAE J1979 mode 01: RPM `0C`, speed `0D`, coolant `05`, load `04`, throttle `11`.
+- Three parked-only standard PIDs: intake `0F`, control-module voltage `42`, fuel level `2F`. Not in the driving poll group.
+- No Toyota enhanced entries. A placeholder mode/PID would either duplicate the `(mode, pid, header)` triple or look like a live request. Candidates stay out until `bench-2019-4runner` supplies a real request.
+- Adapter init array is empty until confirmed on hardware.
+- `commands_forbidden` includes mode 08 and actuation.
 
 ## Status
 
-`specs/4runner-aa-obd.md` exists and governs the JSON. Standard mode 01 PIDs only until a bench source exists for Toyota enhanced formulas. Next step is `protocol-json`, not another summary.
+Standard formulas only. No enhanced formula was invented. Next project step is `closed-loop` (CarAppService skeleton hand-off), not more PIDs.

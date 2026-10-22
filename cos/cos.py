@@ -2,6 +2,8 @@
 """Minimal local COS — Phase 1 with deep persistent context.
 
 Loads specs/META-COS.md once at startup into the system prompt.
+Loads cos/prompts/ask-first.md on each prompt build. That policy overrides
+backlog pressure: questions and statements are not permission to act.
 Each Grok call is prefixed with up to 1_000_000 bytes of deep context
 from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 10 rounds).
@@ -34,6 +36,7 @@ SPEC = ROOT / "specs" / "META-COS.md"
 LOG = Path(__file__).resolve().parent / "event_log.jsonl"
 CONTEXT = Path(__file__).resolve().parent / "context.md"
 TASKS = Path(__file__).resolve().parent / "tasks.md"
+POLICY = Path(__file__).resolve().parent / "prompts" / "ask-first.md"
 
 GROK_API_KEY = os.environ.get("GROK_API_KEY")
 GROK_URL = "https://api.x.ai/v1/chat/completions"
@@ -96,6 +99,11 @@ AVAILABLE_COMMANDS = (
 )
 
 AGENT_SYSTEM_EXTRA = (
+    "Ask-first is locked (cos/prompts/ask-first.md). "
+    "If the current directive is a question, statement, or observation, "
+    "do not call write_file, update_task, handoff, or git add/commit/push. "
+    "You may call list_dir and read_file only when a read is required to answer. "
+    "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
     "handoff(task). "
@@ -108,6 +116,7 @@ AGENT_SYSTEM_EXTRA = (
     "Use update_task to add or change a task; do not rewrite cos/tasks.md with write_file. "
     "Statuses: open, doing, blocked, done. At most one task may be doing. "
     "Mark a task doing before you start it and done only after the file change is written. "
+    "Do that only when the current directive explicitly told you to do the work. "
     "Git is a bounded tool, not a shell. Allowed actions: status, diff, log, add, commit, push. "
     "status, diff, and log need no approval. add stages explicit workspace paths only. "
     "commit and push run only when the current user directive contains the exact phrase "
@@ -1381,8 +1390,32 @@ def load_meta_cos() -> str:
     return _META_COS_TEXT
 
 
+def load_ask_first() -> str:
+    """Return cos/prompts/ask-first.md. Re-read each call. Never raises.
+
+    Not cached, so an edit is visible on the next prompt build after this
+    loader is running. A missing file still states the rule.
+    """
+    fallback = (
+        "(cos/prompts/ask-first.md missing; ask-first still applies: "
+        "questions and statements are not permission to act)"
+    )
+    try:
+        if not POLICY.is_file():
+            return fallback
+        text = POLICY.read_text(encoding="utf-8")
+        if not text.strip():
+            return fallback
+        return text
+    except OSError as e:
+        return f"(unable to load cos/prompts/ask-first.md: {e}; ask-first still applies)"
+    except UnicodeDecodeError as e:
+        return f"(unable to decode cos/prompts/ask-first.md: {e}; ask-first still applies)"
+
+
 def build_system_prompt(extra: str = None) -> str:
     spec_text = load_meta_cos().rstrip()
+    policy_text = load_ask_first().rstrip()
     system = (
         "You are the local Chief of Staff (COS) described in META-COS.md. "
         "Follow its principles: spec-driven, hierarchical, inspectable, "
@@ -1392,10 +1425,19 @@ def build_system_prompt(extra: str = None) -> str:
         "=== specs/META-COS.md ===\n"
         f"{spec_text}\n"
         "=== end specs/META-COS.md ===\n\n"
+        "=== cos/prompts/ask-first.md ===\n"
+        f"{policy_text}\n"
+        "=== end cos/prompts/ask-first.md ===\n\n"
+        "Operating rule: ask-first overrides any language that says you are in charge, "
+        "should drive progress, or should start the next open task. "
+        "Questions and statements are discussion. Act only on an explicit instruction "
+        "in the current directive.\n\n"
         "Available commands:\n"
         f"{AVAILABLE_COMMANDS}\n\n"
-        "You are in charge. Maintain and use the deep persistent context to drive multi-session work.\n"
-        "Use the tools to drive progress and log every significant step."
+        "Maintain and use the deep persistent context. "
+        "Use tools when the current directive explicitly tells you to do the work, "
+        "or use list_dir and read_file when a read is required to answer accurately. "
+        "Do not start implied backlog work."
     )
     tasks_block = task_summary()
     if tasks_block:
@@ -2204,6 +2246,7 @@ def print_commands():
     emit("  <anything else>  → sent to Grok")
     emit("Commit/push need 'approve git commit' or 'approve git push' in the directive.")
     emit("One commit and one push per turn. A successful push ends the turn.")
+    emit("Ask-first is locked: questions and statements are not permission to act.")
 
 
 def _repl_git(user_input: str) -> None:
@@ -2234,6 +2277,7 @@ def _repl_git(user_input: str) -> None:
 
 def main():
     spec_text = load_meta_cos()
+    policy_text = load_ask_first()
     ensure_context_file()
     ensure_tasks_file()
     emit("COS ready.")
@@ -2242,18 +2286,23 @@ def main():
     emit(f"Deep context file: cos/context.md ({ctx_bytes} bytes)")
     task_bytes = _file_size(TASKS)
     emit(f"Task list: cos/tasks.md ({task_bytes} bytes)")
+    policy_bytes = _file_size(POLICY)
+    emit(f"Ask-first policy: cos/prompts/ask-first.md ({policy_bytes} bytes)")
     log_event(
         "startup",
-        "COS started; specs/META-COS.md loaded into system prompt",
-        refs=["specs/META-COS.md", "cos/context.md", "cos/tasks.md"],
+        "COS started; specs/META-COS.md and ask-first policy loaded into system prompt",
+        refs=["specs/META-COS.md", "cos/prompts/ask-first.md", "cos/context.md", "cos/tasks.md"],
         detail={
             "bytes": len(spec_text.encode("utf-8")),
+            "policy_bytes": len(policy_text.encode("utf-8")),
+            "policy_file_bytes": policy_bytes,
             "context_file_bytes": ctx_bytes,
             "tasks_file_bytes": task_bytes,
         },
     )
     append_context(
         "- Session start: COS started. Full META-COS.md loaded into the system prompt. "
+        "Ask-first policy loads from cos/prompts/ask-first.md. "
         "Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md."
     )
 
