@@ -524,3 +524,19 @@ Restart the COS process so the new tool is loaded. Then one directive is enough:
 ## 2026-10-22T04:58:30.371797+00:00
 - Task: `github-checkpoint` doing — Commit and push current workspace to origin/main
 - Note: User approved commit and push this turn. Staging checkpoint files, excluding scratch.
+
+## 2026-10-22T04:58:37.353009+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- specs/META-COS.md specs/4runner-aa-obd.md cos/cos.py cos/routing.yaml cos/tasks.md cos/context.md cos/event_log.jsonl protocol/SUMMARY.md README.md .gitignore cos/CHECKPOINT.md
+exit 0
+
+## 2026-10-22T04:58:40.336170+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Checkpoint COS loop, project spec, and event log
+exit 0
+[main fdb58f2] Checkpoint COS loop, project spec, and event log
+ 7 files changed, 3442 insertions(+), 67 deletions(-)
+ create mode 100644 cos/CHECKPOINT.md
+ create mode 100644 cos/context.md
+ create mode 100644 cos/tasks.md
+ create mode 100644 protocol/SUMMARY.md...
