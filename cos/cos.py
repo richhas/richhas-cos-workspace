@@ -12,6 +12,10 @@ Console output is wrapped to the terminal width so long replies do not overflow.
 Git is a bounded subprocess of the git binary only. No general shell.
 Commit and push require an explicit user approval phrase in the current
 directive. Paths must stay inside the workspace. No force, no config writes.
+
+A successful push ends the tool loop. Logging rewrites context and the event
+log, so chasing a clean tree after push never converges inside one turn.
+If the round cap is hit, one extra no-tools call produces the final answer.
 """
 
 import json
@@ -41,6 +45,7 @@ MAX_ENTRY_CHARS = 4000
 
 # Agentic loop: one round is one Grok API call. Tool calls in that response
 # are executed before the next call. Stop at a final answer or this cap.
+# The cap does not include the one no-tools summary call used when it is hit.
 MAX_TOOL_ROUNDS = 10
 TOOL_RESULT_CHAR_LIMIT = 120_000
 
@@ -109,7 +114,14 @@ AGENT_SYSTEM_EXTRA = (
     "'approve git commit' or 'approve git push'. A prior session approval does not count. "
     "Do not invent that phrase. If it is absent, report the status and the phrase required; do not commit or push. "
     "Never pass extra git flags. No force, no reset, no clean, no config, no commit --amend. "
+    "At most one commit and one push per user turn. "
+    "After a successful push, stop. Do not add, commit, status, or push again in the same turn. "
+    "Logging rewrites cos/context.md and cos/event_log.jsonl after every git action, "
+    "so a clean tree after push is impossible inside the same turn. "
+    "Leave that residual dirty state for the next directive. "
+    "Do not stage protocol/test.txt or protocol/overflow_test.py. "
     "You may call tools across multiple rounds; results are returned to you in this turn. "
+    "The tool loop is capped at 10 rounds. Prefer a final answer before the cap. "
     "Do not claim you cannot read or list local files. "
     "Do not emit manual CLI lines (list:, read:, write:, improve:, handoff:, tasks); "
     "those are user commands, not your interface. "
@@ -238,6 +250,8 @@ TOOLS = [
                 "status/diff/log need no approval. add takes explicit workspace paths. "
                 "commit requires message plus the phrase 'approve git commit' in the current user directive. "
                 "push requires the phrase 'approve git push' in the current user directive. "
+                "At most one commit and one push per user turn. "
+                "A successful push ends the turn; do not chase a clean tree after it. "
                 "remote defaults to origin, branch to main. No extra flags, no force, no config."
             ),
             "parameters": {
@@ -311,6 +325,14 @@ DEEP_CONTEXT_HEADER = "Deep context (persistent):"
 
 # Full meta-spec text, loaded once at process startup (not per API call).
 _META_COS_TEXT = None
+
+# Per-turn git budget. Reset at the start of each tool loop. A successful
+# push sets stop_after_push so the loop returns without another model round.
+_TURN_GIT = {
+    "commits": 0,
+    "pushes": 0,
+    "stop_after_push": False,
+}
 
 
 def log_event(
@@ -1253,11 +1275,23 @@ def run_git(action: str, paths=None, message: str = None, remote: str = None, br
 
     Does not use a shell. Does not accept extra flags. Commit and push require
     an approval phrase in the current user directive, not in the tool arguments.
+    At most one commit and one push per tool-loop turn. A successful push sets
+    stop_after_push so the caller ends the turn instead of chasing a clean tree.
     """
     action = (action or "").strip().lower()
     if action not in GIT_ACTIONS:
         raise ValueError(
             "action must be one of: " + ", ".join(GIT_ACTIONS)
+        )
+    if action == "commit" and _TURN_GIT.get("commits", 0) >= 1:
+        raise ValueError(
+            "commit refused: one commit per turn already used; "
+            "do not chase log dirtiness in the same turn"
+        )
+    if action == "push" and _TURN_GIT.get("pushes", 0) >= 1:
+        raise ValueError(
+            "push refused: one push per turn already used; "
+            "residual log dirtiness belongs to the next directive"
         )
     path_list = _normalize_git_paths(paths)
     git_bin = _git_binary()
@@ -1320,6 +1354,17 @@ def run_git(action: str, paths=None, message: str = None, remote: str = None, br
         )
     if result.returncode != 0:
         raise RuntimeError(text.strip() or f"git {action} exit {result.returncode}")
+    if action == "commit":
+        _TURN_GIT["commits"] = _TURN_GIT.get("commits", 0) + 1
+    if action == "push":
+        _TURN_GIT["pushes"] = _TURN_GIT.get("pushes", 0) + 1
+        _TURN_GIT["stop_after_push"] = True
+        text += (
+            "\n[turn stop] push succeeded. "
+            "Do not add, commit, status, or push again this turn. "
+            "Logging rewrites cos/context.md and cos/event_log.jsonl, "
+            "so a clean tree after push is impossible in the same turn.\n"
+        )
     return text
 
 
@@ -1841,10 +1886,76 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
         return f"Error: {e}"
 
 
+def _finish_without_tools(messages, headers, context_bytes, truncated, reason: str) -> str:
+    """One extra Grok call with tools removed, so a cap still yields an answer.
+
+    Does not count against MAX_TOOL_ROUNDS. If this call fails or still asks
+    for tools, return the best text already in hand plus the reason.
+    """
+    messages = list(messages)
+    messages.append({
+        "role": "user",
+        "content": (
+            "Tool rounds are finished (" + reason + "). "
+            "Do not call tools. Reply with the concise final answer: "
+            "findings, decisions, paths changed, and anything left for the next turn."
+        ),
+    })
+    payload = {
+        "model": "grok-4.7",
+        "messages": messages,
+        "temperature": 0.2,
+    }
+    try:
+        r = requests.post(GROK_URL, headers=headers, json=payload, timeout=600)
+        r.raise_for_status()
+        message = _message_from_response(r.json())
+    except Exception as e:
+        log_event(
+            "grok_call",
+            f"Final-answer call failed: {e}",
+            actor="grok",
+            refs=["cos/context.md", "cos/event_log.jsonl"],
+            detail={
+                "error": _clip(str(e), 600),
+                "reason": reason,
+                "context_bytes": context_bytes,
+                "context_truncated": truncated,
+            },
+            context_bytes=context_bytes,
+        )
+        return ""
+    content = _message_text(message).strip()
+    tool_calls = _normalize_tool_calls(message.get("tool_calls"))
+    log_event(
+        "grok_call",
+        "Final-answer call completed",
+        actor="grok",
+        refs=["cos/context.md", "cos/event_log.jsonl"],
+        detail={
+            "reason": reason,
+            "reply_preview": content[:200],
+            "ignored_tool_calls": [tc["function"]["name"] for tc in tool_calls],
+            "context_bytes": context_bytes,
+            "context_truncated": truncated,
+        },
+        context_bytes=context_bytes,
+    )
+    if tool_calls and not content:
+        return ""
+    return content
+
+
 def ask_grok_with_tools(user_input: str) -> str:
-    """Call Grok with tools. Execute tool_calls until a final answer or 10 rounds."""
-    global _TURN_DIRECTIVE
+    """Call Grok with tools until a final answer, a push, or the round cap.
+
+    The cap is 10 tool rounds. Hitting it triggers one no-tools summary call
+    so the user still gets an answer. A successful push ends the turn without
+    another model round, because logging would dirty the tree again.
+    """
+    global _TURN_DIRECTIVE, _TURN_GIT
     _TURN_DIRECTIVE = user_input or ""
+    _TURN_GIT = {"commits": 0, "pushes": 0, "stop_after_push": False}
     system_text = build_system_prompt(AGENT_SYSTEM_EXTRA)
     block, truncated, original_bytes = load_deep_context(CONTEXT_BYTE_LIMIT)
     raw = block.encode("utf-8")
@@ -1909,6 +2020,7 @@ def ask_grok_with_tools(user_input: str) -> str:
     tools_used = []
     final_text = ""
     stopped_at_limit = False
+    stopped_after_push = False
     rounds_used = 0
     content = ""
 
@@ -2001,18 +2113,47 @@ def ask_grok_with_tools(user_input: str) -> str:
                     "tool_call_id": tc["id"],
                     "content": _tool_result_text(result),
                 })
+
+            if _TURN_GIT.get("stop_after_push"):
+                stopped_after_push = True
+                emit("[tool] push succeeded; ending turn")
+                log_event(
+                    "tool_stop",
+                    "Ended turn after successful push",
+                    detail={"rounds": rounds_used, "tools": tools_used},
+                )
+                note = (
+                    "Push succeeded. Turn stopped so logging would not be "
+                    "committed again. cos/context.md and cos/event_log.jsonl "
+                    "will still be dirty; that residual belongs to the next directive."
+                )
+                if content and content.strip():
+                    final_text = content.strip() + "\n\n" + note
+                else:
+                    final_text = note
+                break
         else:
             stopped_at_limit = True
-            emit(f"[tool] max rounds ({MAX_TOOL_ROUNDS}) reached")
+            emit(f"[tool] max rounds ({MAX_TOOL_ROUNDS}) reached; requesting final answer")
             log_event(
                 "tool_limit",
                 f"Stopped after {MAX_TOOL_ROUNDS} tool rounds",
                 detail={"rounds": MAX_TOOL_ROUNDS, "tools": tools_used},
             )
-            note = (
-                f"Stopped after {MAX_TOOL_ROUNDS} tool rounds without a final answer."
+            summary_text = _finish_without_tools(
+                messages,
+                headers,
+                context_bytes,
+                truncated,
+                f"hit the {MAX_TOOL_ROUNDS}-round tool cap",
             )
-            if content and content.strip():
+            note = (
+                f"Stopped after {MAX_TOOL_ROUNDS} tool rounds. "
+                "Unfinished work stays on the task list."
+            )
+            if summary_text:
+                final_text = summary_text
+            elif content and content.strip():
                 final_text = _clip(content.strip(), 500) + "\n\n" + note
             else:
                 final_text = note
@@ -2026,6 +2167,7 @@ def ask_grok_with_tools(user_input: str) -> str:
         raise
     finally:
         _TURN_DIRECTIVE = ""
+        _TURN_GIT = {"commits": 0, "pushes": 0, "stop_after_push": False}
 
     log_event(
         "tool_loop",
@@ -2035,6 +2177,7 @@ def ask_grok_with_tools(user_input: str) -> str:
             "tools": tools_used,
             "max_rounds": MAX_TOOL_ROUNDS,
             "stopped_at_limit": stopped_at_limit,
+            "stopped_after_push": stopped_after_push,
         },
     )
     append_context(
@@ -2060,6 +2203,7 @@ def print_commands():
     emit("  quit / exit / q")
     emit("  <anything else>  → sent to Grok")
     emit("Commit/push need 'approve git commit' or 'approve git push' in the directive.")
+    emit("One commit and one push per turn. A successful push ends the turn.")
 
 
 def _repl_git(user_input: str) -> None:

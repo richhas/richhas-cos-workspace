@@ -612,3 +612,55 @@ exit 0
 stderr:
 To https://github.com/richhas/richhas-cos-workspace.git
    2806d60..14ca172  main -> main
+
+## 2026-10-22T04:59:47.090978+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/context.md cos/event_log.jsonl
+exit 0
+
+## 2026-10-22T04:59:48.798911+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record second checkpoint push in context and event log
+exit 0
+[main 53a3649] Record second checkpoint push in context and event log
+ 2 files changed, 35 insertions(+)
+
+## 2026-10-22T04:59:48.814538+00:00
+- Dialog:
+  - In: approve git commit and approve git push
+  - Tools: git, git, update_task, git, read_file, read_file, read_file, git, git, git, git, git, git, git, git, git, git (10 round(s))
+  - Out: Stopped after 10 tool rounds without a final answer.
+
+## 2026-10-22T05:01:48.237122+00:00
+- Task: `round-limit` doing — Stop same-turn git chase and always emit a final answer at the tool cap
+- Note: 10-round cap cut off checkpoint pushes. Cause is log rewrite after each push, not the number 10.
+
+## 2026-10-22T05:03:51.186123+00:00
+- File change: wrote `cos/cos.py` (84595 bytes)
+
+## 2026-10-22T05:03:54.337272+00:00
+- Task: `round-limit` done — Stop same-turn git chase and always emit a final answer at the tool cap
+- Note: Cap stays 10. Successful push ends the turn. Cap now triggers one no-tools final answer. Restart required.
+
+## 2026-10-22T05:03:54.368535+00:00
+- Task: `github-checkpoint` open — Commit and push current workspace to origin/main
+- Note: HEAD 53a3649 is 1 commit ahead of origin/main 14ca172. Context and event log are dirty by design after any push. Scratch files untracked. Needs a fresh approve phrase.
+
+## 2026-10-22T05:03:57.532923+00:00
+- Dialog:
+  - In: What about this round limit issue?
+  - Tools: git, git, read_file, update_task, read_file, write_file, update_task, update_task (6 round(s))
+  - Out: The round limit was a symptom. The loop was chasing a tree that logging itself keeps dirty.
+
+**What happened.** `MAX_TOOL_ROUNDS` is 10, and the last round is always spent on tools, so a cap never produced a final answer. The last two turns used all 10 on git: each `add`/`commit`/`push` rewrites `cos/context.md` and `cos/event_log.jsonl`, so status was dirty again immediately. Raising the cap would not have converged.
+
+**Change.** `cos/cos.py` (84595 bytes). Cap stays 10. A successful push now ends the turn (one commit and one push max). Hitting the cap triggers one extra no-tools call so you still get an answer. Restart required before this is live.
+
+**Git, not committed this turn.** HEAD `53a3649` is 1 commit ahead of `origin/main` at `14ca172`. Context and the event log are dirty by design. `protocol/test.txt` and `protocol/overflow_test.py` stay untracked. A later checkpoint needs...
+
+## 2026-10-22T05:04:52.517697+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-22T05:05:00.922829+00:00
+- Task: `github-checkpoint` doing — Commit and push current workspace to origin/main
+- Note: User approved commit only this turn. Inspecting the tree before one commit. No push.
