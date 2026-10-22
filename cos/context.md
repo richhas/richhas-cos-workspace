@@ -820,3 +820,756 @@ The process promp...
 
 ## 2026-10-22T05:20:54.175565+00:00
 - Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-22T05:22:30.064862+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/context.md cos/cos.py cos/event_log.jsonl cos/tasks.md protocol/SUMMARY.md cos/prompts/ask-first.md protocol/toyota-4runner-2019.json
+exit 0
+
+## 2026-10-22T05:22:31.535291+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record ask-first policy, protocol JSON, and session context
+exit 0
+[main dfcd079] Record ask-first policy, protocol JSON, and session context
+ 7 files changed, 555 insertions(+), 13 deletions(-)
+ create mode 100644 cos/prompts/ask-first.md
+ create mode 100644 protocol/toyota-4runner-2019.json
+
+## 2026-10-22T05:22:33.424750+00:00
+- Dialog:
+  - In: approve git commit and push
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Committed once. Did not push.
+
+**Commit:** `dfcd079` — Record ask-first policy, protocol JSON, and session context.
+
+**Staged:** `cos/prompts/ask-first.md`, `cos/cos.py`, `protocol/toyota-4runner-2019.json`, `protocol/SUMMARY.md`, `cos/tasks.md`, `cos/context.md`, `cos/event_log.jsonl`.
+
+**Left untracked:** `protocol/test.txt`, `protocol/overflow_test.py`.
+
+**Branch:** `main` is 1 commit ahead of `origin/main` (`7bfc3bd`).
+
+**Still dirty:** `cos/context.md` and `cos/event_log.jsonl`. Logging rewrites them after every git action, so that residual is expected.
+
+**Not done:** this directive contained `approve git commit` but not the exact phrase `approve git push`. Push needs a new directive with that phrase.
+
+## 2026-10-22T05:23:15.438470+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   7bfc3bd..dfcd079  main -> main
+
+## 2026-10-22T05:23:15.438470+00:00
+- Dialog:
+  - In: approve git push
+  - Tools: git, git, git (2 round(s))
+  - Out: HEAD is one commit ahead of origin/main. Pushing that commit only.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-22T05:27:11.781969+00:00
+- Dialog:
+  - In: test github access
+  - Tools: git, git (2 round(s))
+  - Out: GitHub access is only partly proven. Local git works, and the tracking ref says you are in sync. This turn did not contact GitHub.
+
+**Local**
+- `main` tracks `origin/main`. Both are at `dfcd079` — Record ask-first policy, protocol JSON, and session context.
+- No ahead/behind on the tracking ref. Last live push in the log was `7bfc3bd..dfcd079` to `https://github.com/richhas/richhas-cos-workspace.git`.
+
+**Dirty, left alone**
+- `cos/context.md` and `cos/event_log.jsonl` are modified. Logging rewrites them after every git action.
+- `protocol/test.txt` and `protocol/overflow_test.py` are still untracked. Not staged.
+
+**Not done**
+- `status` and `log` do not open a network connection. A live probe would be a push or a fetch. This tool has no fetch. Push needs the exact phrase `approve git push` in the current directive, and it is not there. I did not commit or push.
+
+## 2026-10-22T05:28:07.639637+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+Everything up-to-date
+
+## 2026-10-22T05:28:07.639637+00:00
+- Dialog:
+  - In: approve git push
+  - Tools: git, git, git (2 round(s))
+  - Out: HEAD matches origin/main. Pushing once as approved; residual dirty files stay unstaged.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-22T05:28:50.480191+00:00
+- Dialog:
+  - In: did that test github access
+  - Tools: (none) (1 round(s))
+  - Out: Yes. The push contacted GitHub. The earlier “test github access” turn did not.
+
+**What did not test it.** `git status` and `git log` are local. That turn never opened a connection.
+
+**What did.** `approve git push` ran `git push origin main`. Exit 0. The remote answered `Everything up-to-date`. That means GitHub was reachable and accepted the credentials for a no-op push. `main` and `origin/main` were both at `dfcd079`.
+
+**What it does not prove.** Nothing new was written. A no-op push does not show that a new commit would be accepted. Residual dirty files (`cos/context.md`, `cos/event_log.jsonl`) were left unstaged on purpose.
+
+## 2026-10-22T05:30:25.852131+00:00
+- Dialog:
+  - In: how much context have we used
+  - Tools: list_dir, read_file (3 round(s))
+  - Out: About **6% of the deep-context cap**. The cap is **1,000,000 bytes** per Grok call. Nothing has been truncated.
+
+**Last measured call** (05:28:50Z, “did that test github access”): **57,150 bytes**. That figure is the deep-context block only: newest `cos/context.md`, `cos/tasks.md`, and a 30-line event-log tail. It does not include the system prompt.
+
+**On disk now**
+
+| File | Size | Loaded? |
+|------|------|---------|
+| `cos/context.md` | 51,398 B | yes, newest material |
+| `cos/tasks.md` | 5,051 B | yes |
+| `cos/event_log.jsonl` | 235,689 B | no — only the compact 30-line tail |
+| `specs/META-COS.md` | in the system prompt | not part of `context_bytes` |
+| `cos/prompts/ask-first.md` | 3,044 B | system prompt, not `context_bytes` |
+
+This turn’s deep-context block is on the order of **60 KB**. The full event log is not sent. Older context is dropped only after the accumulated block pas...
+
+## 2026-10-22T13:03:52.227723+00:00
+- Dialog:
+  - In: handoff
+  - Tools: (none) (1 round(s))
+  - Out: `handoff` with no task is not a work order. I did not emit one.
+
+The only open item designated as a Claude hand-off is `closed-loop`: a `CarAppService` plus `Session` skeleton against `specs/4runner-aa-obd.md` and `protocol/toyota-4runner-2019.json`. Protocol JSON is already written. That hand-off is a bootstrap acceptance check, not required for a small skeleton.
+
+Say which task to hand off, for example “hand off the CarAppService skeleton”, and I will emit that prompt only.
+
+## 2026-10-22T13:04:52.227991+00:00
+- Dialog:
+  - In: how do you get the claude api key
+  - Tools: read_file, read_file, read_file (2 round(s))
+  - Out: I do not get a Claude API key. This process never loads one, and it never calls Claude.
+
+**What the files actually do**
+- `cos/cos.py` reads only `GROK_API_KEY` from the environment, for `https://api.x.ai/v1/chat/completions`.
+- Claude is hand-off only. `handoff` prints a prompt for you to paste into a VS Code Claude session. No key, no API call.
+- `cos/routing.yaml` names Claude for Kotlin/Android work, but the process never loads that file.
+- META-COS §14 still leaves this open: API key versus prompt hand-off only.
+
+**What that means**
+A hand-off does not need a key. An API call would, and that path is not implemented. I will not fetch, store, or invent a key. If you later want API access, you would create the key in your own Anthropic account and put it in the environment yourself, the same pattern as `GROK_API_KEY`. That is a separate decision. Say if you want that proposed, not b...
+
+## 2026-10-22T13:06:46.140889+00:00
+- Dialog:
+  - In: It would be better if you could invoke the claude api directly. What keeps this from happening?
+  - Tools: (none) (1 round(s))
+  - Out: Direct Claude API calls are not blocked by a missing key alone. They are not built, and the bootstrap spec still treats them as a later choice.
+
+**What the files do now**
+- `cos/cos.py` calls only Grok, using `GROK_API_KEY`. Claude is `handoff`: a prompt for you to paste into VS Code. No Anthropic client, no second model call.
+- Nothing in this process loads an Anthropic or Claude key. I will not fetch, store, or invent one.
+- `cos/routing.yaml` names Claude for Kotlin and Android work, but the process never reads that file. `routing-load` is still open.
+- META-COS §14 still leaves the method open: API key versus hand-off only. §11 step 6 says automatic Claude API calls come only after the minimal loop is reliable. Bootstrap acceptance wants one logged hand-off, not one API call.
+
+**What would have to change**
+You would create the key in your own Anthropic account and put it in the en...
+
+## 2026-10-22T13:09:25.963897+00:00
+- Task: `claude-api-proposal` doing — Write a proposal for direct Claude API calls from the COS
+- Note: User said yes write the proposal. Document only. No API client, no key, no code change.
+
+## 2026-10-22T13:09:25.978988+00:00
+- File change: wrote `specs/claude-api-proposal.md` (6527 bytes)
+
+## 2026-10-22T13:09:27.220974+00:00
+- Task: `claude-api-proposal` done — Write a proposal for direct Claude API calls from the COS
+- Note: Wrote specs/claude-api-proposal.md. Proposed only. No client, no key, no META-COS edit. Not committed.
+
+## 2026-10-22T13:09:30.270858+00:00
+- Dialog:
+  - In: yes write the proposal
+  - Tools: list_dir, list_dir, list_dir, read_file, read_file, read_file, update_task, write_file, update_task (6 round(s))
+  - Out: Wrote `specs/claude-api-proposal.md` (6527 bytes). It is a proposal only. No client, no key, no change to `cos/cos.py`.
+
+**What it says**
+- Today Claude is hand-off only. `cos/cos.py` calls Grok with `GROK_API_KEY`. Nothing loads an Anthropic key.
+- A direct call is blocked by four things: no client, META-COS §14 still open, bootstrap step 6 not reached, and no key in the environment. Ask-first still applies.
+- If later accepted: one stateless call using `ANTHROPIC_API_KEY`, only after `routing-load`, only when the current directive names Claude. Hand-off stays. Key never goes into the log, context, or git. One call per turn.
+
+**Not done**
+- Not accepted. Acceptance would be a separate explicit instruction, and it would still not implement the client.
+- Not committed. No approve phrase in this directive.
+
+`claude-api-proposal` is marked done. `closed-loop` and `routing-load` stay open.
+
+## 2026-10-22T13:11:56.127930+00:00
+- Dialog:
+  - In: Do you have the ability to generate the claude client code in cos?
+  - Tools: (none) (1 round(s))
+  - Out: Yes. I can write the client code. I will not do it from this question.
+
+**What I can do**
+- Generate a bounded Python client and put it in `cos/` (or into `cos/cos.py`) with `write_file`. The Grok call path is the pattern: one stateless HTTP call, key from the environment, result logged without the key.
+
+**What is not true yet**
+- No Claude client exists. `cos/cos.py` calls only Grok via `GROK_API_KEY`. Claude is still hand-off only.
+- I cannot call Claude, and I will not fetch, store, or invent a key. A key would have to come from your Anthropic account as `ANTHROPIC_API_KEY`, the same pattern as `GROK_API_KEY`.
+
+**What still blocks writing it**
+- This turn is a question. Ask-first says that is discussion, not permission.
+- `specs/claude-api-proposal.md` is a proposal only. It was not accepted. Acceptance is a separate instruction, and acceptance still does not implement the client.
+...
+
+## 2026-10-22T13:15:19.207811+00:00
+- Dialog:
+  - In: What I'm thinking is weak is our current tool set. I have a spec that could be given to you to implment a rich set of client tools for use by both grok and claude (once added). Does that make sense?
+  - Tools: (none) (1 round(s))
+  - Out: Yes. A shared tool spec is the right shape. This message is not permission to implement it.
+
+**What is weak now**
+- Tools live only inside `cos/cos.py`, wired to the Grok loop: `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff`.
+- Claude cannot use any of them. It is still a paste-in prompt. `specs/claude-api-proposal.md` is a proposal only, and it does not add a tool loop.
+- There is no versioned contract both executors could call. `cos/routing.yaml` is still unread.
+
+**What I would not treat as “rich”**
+A bigger tool list does not override ask-first, the git approval phrases, or META-COS §2. No general shell, no unattended commit or push, no key handling, no tools outside this workspace.
+
+**If you tell me to**
+Point me at the spec, or say to read a path. I would compare it to the current tools and those gates, name conflicts, and stop. Implementation ...
+
+## 2026-10-22T13:28:51.922768+00:00
+- Dialog:
+  - In: look at specs for cos-tools.md - eval that and let's discuss.
+  - Tools: list_dir, list_dir, read_file, read_file, read_file (3 round(s))
+  - Out: `specs/cos-tools.md` is a proposal, not a work order. I did not implement it. Its own "ready / implement this" lines do not authorize a change.
+
+**What is right**
+- The real gap is large-file inspection, not missing power. `cos/cos.py` is 89,552 bytes, `cos/context.md` is 59,258, and the event log is 253,928. Full-file `read_file` / `write_file` is why turns time out.
+- Worth having later: `file_info`, `read_file_range` / head / tail, in-workspace search, and `patch_file` with a unique literal match and a short diff. A 12,000-character tool-result cap is right.
+- Non-goals that already match policy: no binary edits, no privilege elevation, no automatic git, no external POST/PUT, no daemons, do not replace the tool loop.
+
+**What is wrong**
+- It is stale. Live tools are `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff`. The spec lists `run_command` as ex...
+
+## 2026-10-22T13:43:13.245923+00:00
+- Dialog:
+  - In: I don't think 3.6 and 3.7 should dropped but made "on hold". WRT **What is wrong** first point: these fixes should be made to make the spec current. The  self-implement line should be made conditional on an approval step. Assume when looking at these tools that the claude api based client code will be added. The imp of this spec would not be all at once. It would be a planned and order imp with testing, verification, and signoff on each tool. Absorb and restate you current thinking.
+  - Tools: read_file (2 round(s))
+  - Out: Absorbed. This restates the position. I did not edit the spec.
+
+**What changed in my thinking**
+- 3.6 and 3.7 stay in the catalog. Status is **on hold**, not deleted and not in the first wave.
+- Staleness is a defect to fix in `specs/cos-tools.md`, not a reason to reject it.
+- "Ready for implementation" and the self-implement lines in §5 and §7 are not approval. They become conditional on an explicit instruction that names the slice.
+- The tool surface is shared. Grok uses it now. The Claude API client is assumed later, from `specs/claude-api-proposal.md`. That client is not built, and this spec does not build it.
+- Delivery is ordered. One slice at a time. Test, verify, sign off, then the next. Not all of section 3 in one change to `cos/cos.py`.
+
+**Spec is current only after these corrections**
+- Live tools are `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and ...
+
+## 2026-10-22T13:47:35.967427+00:00
+- File change: wrote `specs/cos-tools-plan.md` (6131 bytes)
+
+## 2026-10-22T13:47:38.869448+00:00
+- Task: `tools-1-spec` open — Correct specs/cos-tools.md so it matches live tools and the approval gate
+- Note: Plan step 1. Next eligible. Document only. Not started by the booking. Needs its own instruction.
+
+## 2026-10-22T13:47:38.885109+00:00
+- Task: `tools-2-info` open — Add tool-result cap, file_info, and file_outline
+- Note: Plan step 2. Blocked on tools-1-spec sign-off. No search or patch in this step.
+
+## 2026-10-22T13:47:38.946343+00:00
+- Task: `tools-3-read` open — Add partial reads: range, head, tail, search_in_file
+- Note: Plan step 3. Blocked on tools-2-info sign-off.
+
+## 2026-10-22T13:47:38.997635+00:00
+- Task: `tools-4-search` open — Add in-workspace search_files and list_files
+- Note: Plan step 4. Blocked on tools-3-read sign-off. .git stays unexpanded.
+
+## 2026-10-22T13:47:41.403305+00:00
+- Task: `tools-5-patch` open — Add patch_file with unique literal match and a short diff
+- Note: Plan step 5. Blocked on tools-4-search sign-off. No multi-file writes in this step.
+
+## 2026-10-22T13:47:41.434552+00:00
+- Task: `tools-6-gate` open — Record first-wave sign-off gate; do not start later slices
+- Note: Plan step 6. Blocked on tools-5-patch sign-off. 3.6 and 3.7 stay on hold. No Claude client.
+
+## 2026-10-22T13:47:44.334946+00:00
+- Dialog:
+  - In: Book this initial plan - and in such a way we can make progress one step (1-6) at a time.
+  - Tools: read_file, read_file, list_dir, read_file, read_file, read_file, write_file, update_task, update_task, update_task, update_task, update_task, update_task (8 round(s))
+  - Out: Booked. Nothing was implemented.
+
+**Written:** `specs/cos-tools-plan.md` (6131 bytes). Six tasks added to `cos/tasks.md`, all open. None is `doing`.
+
+**Order**
+1. `tools-1-spec` — correct `specs/cos-tools.md`. Next eligible. Document only. Needs its own instruction.
+2. `tools-2-info` — result cap, `file_info`, `file_outline`.
+3. `tools-3-read` — range, head, tail, `search_in_file`.
+4. `tools-4-search` — `search_files`, `list_files`.
+5. `tools-5-patch` — unique `patch_file` only.
+6. `tools-6-gate` — stop. Later slices stay unstarted.
+
+**Held**
+- §3.6 and §3.7 stay on hold, not dropped.
+- No Claude client. No `cos/cos.py` change. No commit.
+
+Each later step waits on sign-off of the one before it. Say "do step 1" if you want the spec corrected.
+
+## 2026-10-22T13:48:27.404734+00:00
+- Task: `tools-1-spec` doing — Correct specs/cos-tools.md so it matches live tools and the approval gate
+- Note: User said do step 1. Correcting specs/cos-tools.md only. No code.
+
+## 2026-10-22T13:49:23.333593+00:00
+- File change: wrote `specs/cos-tools.md` (14976 bytes)
+
+## 2026-10-22T13:49:27.859025+00:00
+- Task: `tools-1-spec` done — Correct specs/cos-tools.md so it matches live tools and the approval gate
+- Note: Wrote specs/cos-tools.md v1.2 (14976 bytes). Document only. No cos/cos.py change. Awaiting user sign-off.
+
+## 2026-10-22T13:49:31.408744+00:00
+- Dialog:
+  - In: do step 1
+  - Tools: update_task, read_file, read_file, write_file, read_file, update_task (5 round(s))
+  - Out: Step 1 is written. Document only. No code change.
+
+**Changed:** `specs/cos-tools.md` is now v1.2 (14,976 bytes). `tools-1-spec` is marked done. Nothing else was edited.
+
+**What the correction locks**
+- Live tools are `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff`. `run_command` is not live.
+- Status is no longer "Ready for implementation". A slice starts only when you name it.
+- The old §5 and §7 self-implement lines are withdrawn.
+- §3.6 and §3.7 stay in the catalog, marked **on hold**.
+- Shared surface: Grok now, Claude client later. This spec does not build that client.
+- The 12,000-character cap stays a requirement. It is not enforced until step 2.
+- The v1.1 system-prompt paragraph is withdrawn. It named tools that are not live.
+
+**Not done**
+- Your sign-off. The plan treats that as a separate instruction, not this write.
+- Step 2 is still bloc...
+
+## 2026-10-22T13:58:47.355728+00:00
+- Task: `tools-1-spec` done — Correct specs/cos-tools.md so it matches live tools and the approval gate
+- Note: User signed off 2026-10-22: spec matches the review. v1.2 accepted. Does not start step 2.
+
+## 2026-10-22T13:58:47.380519+00:00
+- Task: `tools-2-info` open — Add tool-result cap, file_info, and file_outline
+- Note: Step 1 signed off. Eligible, not started. Needs its own instruction. No search or patch in this step.
+
+## 2026-10-22T13:58:53.207436+00:00
+- Dialog:
+  - In: If the current spec matches your review, I sign off.
+  - Tools: read_file, read_file, update_task, update_task (3 round(s))
+  - Out: Sign-off accepted. `specs/cos-tools.md` v1.2 matches the review. Step 1 is closed. Step 2 was not started.
+
+**What matched**
+- Live tools are `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff`. `run_command` is not live.
+- Status is "corrected; not authorized for implementation." A named instruction is required before a slice starts.
+- The old self-implement lines are withdrawn.
+- §3.6 and §3.7 stay in the catalog, marked on hold.
+- Shared surface assumes a later Claude client. This spec does not build it.
+- The 12,000-character cap is a requirement, not enforced until step 2.
+- No `cos/cos.py` change in this turn.
+
+**Recorded**
+- `tools-1-spec` stays done, with the sign-off note.
+- `tools-2-info` is eligible and still open. It needs its own instruction.
+
+**Stale, left alone**
+`specs/cos-tools-plan.md` still says the parent spec is v1.1 and step 1 is op...
+
+## 2026-10-22T14:04:34.467351+00:00
+- Dialog:
+  - In: I concerned about live tools not being enabled for you as you are currently implemented.
+  - Tools: read_file, list_dir, read_file (3 round(s))
+  - Out: The six live tools are enabled in this process. This turn used two of them. The concern matches the unbuilt catalog, not the running loop.
+
+**What is on**
+`cos/cos.py` registers `list_dir`, `read_file`, `write_file`, `update_task`, `git`, and `handoff`, and sends that list on every normal directive. The system prompt names the same six. This turn listed `cos/` and read `specs/cos-tools.md` and `cos/cos.py` through that path. Ask-first still gates writes, task updates, hand-offs, and git add/commit/push. Reads are allowed when needed to answer.
+
+**What is not on**
+`file_info`, `file_outline`, partial reads, search, and `patch_file` are not implemented. Step 1 is signed off. `tools-2-info` is eligible and not started. The 12,000-character result cap is also not in the code. The current cap is 120,000. `cos/routing.yaml` is still unread. Claude still cannot call these tools. There is no ...
+
+## 2026-10-22T14:08:32.255856+00:00
+- Dialog:
+  - In: I need to make sure the existing enabled tools are prioritized first. I can't afford you to loose any current functionality
+  - Tools: read_file, read_file (2 round(s))
+  - Out: Understood. Existing tools stay first. This statement does not start step 2, and I did not change any files.
+
+**What stays live**
+`list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff` are already enabled in this process. A later slice may add tools beside them. It may not replace, drop, or weaken them.
+
+**What “no loss” means for step 2**
+If you later say to do step 2, the change is additive only:
+
+- Keep the six tools, their names, and their gates. Ask-first, git approval phrases, one commit and one push per turn, and push-ends-the-turn stay.
+- Keep full-file `read_file` and `write_file`. `write_file` still cannot overwrite `cos/tasks.md`.
+- Keep the tool loop, deep context, event log, manual commands, and console wrap.
+- Add the 12,000-character cap, `file_info`, and `file_outline` only. No search, no patch, no shell, no Claude client.
+- A failed new too...
+
+## 2026-10-22T14:13:32.244302+00:00
+- File change: wrote `specs/cos-tools.md` (20418 bytes)
+
+## 2026-10-22T14:13:32.244302+00:00
+- File change: wrote `specs/cos-tools-plan.md` (9613 bytes)
+
+## 2026-10-22T14:13:35.334825+00:00
+- Dialog:
+  - In: Update the spec files and plan
+  - Tools: list_dir, read_file, read_file, read_file, write_file, write_file (4 round(s))
+  - Out: Updated the two stale documents. No code change. Step 2 was not started.
+
+**Changed**
+- `specs/cos-tools.md` is now v1.3 (20,418 bytes). v1.2 stays the signed-off catalog correction. v1.3 adds §2.3: the six live tools stay, same names and gates. New tools are additive. A truncated 12,000-character result must say it was truncated. Full-file `read_file` and `write_file` stay.
+- `specs/cos-tools-plan.md` (9,613 bytes). It no longer says the parent spec is v1.1 or that step 1 is open. Step 1 is done and signed off. Step 2 is eligible and not started. Each later step now has a no-loss check.
+
+**Not done**
+- v1.3 is not signed off. This write is not that sign-off. Signing it off still would not start step 2.
+- `cos/cos.py` was not edited. The live cap is still 120,000.
+- `specs/META-COS.md`, `specs/4runner-aa-obd.md`, and `specs/claude-api-proposal.md` were left alone. They were not the st...
+
+## 2026-10-22T14:19:28.508646+00:00
+- File change: wrote `specs/cos-tools.md` (20661 bytes)
+
+## 2026-10-22T14:19:28.508646+00:00
+- File change: wrote `specs/cos-tools-plan.md` (10006 bytes)
+
+## 2026-10-22T14:19:30.796567+00:00
+- Task: `tools-2-info` open — Add tool-result cap, file_info, and file_outline
+- Note: v1.3 signed off 2026-10-22 by "I approve". Eligible, not started. Sign-off does not start this step. Needs its own instruction. No search or patch.
+
+## 2026-10-22T14:19:33.957851+00:00
+- Dialog:
+  - In: I approve
+  - Tools: read_file, read_file, write_file, write_file, update_task (4 round(s))
+  - Out: Sign-off accepted. v1.3 is locked. Step 2 was not started.
+
+**What "I approve" covered**
+- `specs/cos-tools.md` v1.3, including §2.3: the six live tools stay, same names and gates. New tools are additive only.
+- `specs/cos-tools-plan.md` matches that version. Step 1 stays closed. Step 2 stays eligible and not started.
+
+**Recorded**
+- Both files now say signed off 2026-10-22 by "I approve".
+- `tools-2-info` stays open. The note says this sign-off does not start it.
+
+**Not done**
+- No `cos/cos.py` change. The live result cap is still 120,000.
+- No commit. That needs `approve git commit` in a later directive.
+
+Step 2 still needs its own instruction, for example "do step 2".
+
+## 2026-10-22T14:20:29.300017+00:00
+- Task: `tools-2-info` doing — Add tool-result cap, file_info, and file_outline
+- Note: User said do step 2. Adding result cap, file_info, and file_outline only. No search or patch.
+
+## 2026-10-22T14:21:08.125688+00:00
+- File change: wrote `cos/file_info.py` (9056 bytes)
+
+## 2026-10-22T14:21:08.125688+00:00
+- File change: wrote `protocol/step2_self_test.py` (3725 bytes)
+
+## 2026-10-22T14:23:36.640897+00:00
+- File change: wrote `cos/cos.py` (100435 bytes)
+
+## 2026-10-22T14:23:45.991782+00:00
+- File change: wrote `protocol/step2_self_test.py` (3036 bytes)
+
+## 2026-10-22T14:23:56.331436+00:00
+- File change: wrote `cos/file_info.py` (137 bytes)
+
+## 2026-10-22T14:23:56.346330+00:00
+- File change: wrote `protocol/step2_self_test.py` (2805 bytes)
+
+## 2026-10-22T14:26:19.759361+00:00
+- File change: wrote `cos/cos.py` (100995 bytes)
+
+## 2026-10-22T14:26:28.104069+00:00
+- Task: `tools-2-info` done — Add tool-result cap, file_info, and file_outline
+- Note: Wrote cap 12000, file_info, and file_outline in cos/cos.py. Six live tools kept. Not live until restart. Awaiting sign-off. Does not start step 3.
+
+## 2026-10-22T14:26:28.119944+00:00
+- File change: wrote `protocol/step2_self_test.py` (2861 bytes)
+
+## 2026-10-22T14:26:47.179568+00:00
+- Dialog:
+  - In: do step 2
+  - Tools: read_file, read_file, update_task, read_file, read_file, write_file, write_file, write_file, write_file, read_file, write_file, write_file, write_file, update_task, write_file (10 round(s))
+  - Out: Step 2 is written. It is not live until you restart, and it is not signed off. Step 3 was not started.
+
+**Changed**
+- `cos/cos.py` (100,995 bytes). The six live tools stay: `list_dir`, `read_file`, `write_file`, `update_task`, `git`, `handoff`. Added beside them: `file_info` and `file_outline`.
+- Tool results returned to the model are capped at 12,000 characters. A truncated result says `TRUNCATED` and names how many characters were omitted. The file on disk is unchanged. Full `read_file` and `write_file` stay. `write_file` still cannot overwrite `cos/tasks.md`.
+- `file_info` returns size, line count, mtime, and sha256. `file_outline` returns markdown headings, JSON top-level keys, or Python/Kotlin names. Paths still cannot leave the workspace.
+- `tools-2-info` is marked done as a write, awaiting your sign-off. That does not start step 3.
+
+**Not done**
+- This process is still the old ...
+
+## 2026-10-22T14:29:38.487159+00:00
+- Dialog:
+  - In: I don't understand the testing aspect.
+  - Tools: read_file, read_file, read_file (2 round(s))
+  - Out: Testing here is a check you run, then a sign-off you give. I cannot run it. Writing the script was not a test.
+
+**What the plan means by test**
+Step 2 is not done when the code is written. The plan’s verify list has to pass, and then you sign off in a later directive. My own check is not that sign-off. A pass does not start step 3.
+
+**What I actually did**
+There is no shell, so I cannot run Python. During “do step 2” I only wrote `protocol/step2_self_test.py`. It is a hand checklist, not part of the COS loop, and it says not to stage it. It was never executed. `cos/file_info.py` is an empty leftover. The real functions are in `cos/cos.py`. This running process is still the old one until you restart. The script does not need that restart. It imports the file on disk.
+
+**What the script checks, if you run it**
+`python protocol/step2_self_test.py`
+
+- The six old tools are still registere...
+
+## 2026-10-22T14:32:51.170039+00:00
+- Dialog:
+  - In: Give me the exact instructions for moving fwd including running the test
+  - Tools: read_file, read_file, read_file, read_file (3 round(s))
+  - Out: Exact sequence. Do these in order. Do not skip to step 3.
+
+**1. Stop this COS process.**
+The running process is the old one. `file_info` and `file_outline` are on disk in `cos/cos.py` and are not live until you restart.
+
+**2. Run the check from the workspace root.**
+```
+cd C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace
+python protocol/step2_self_test.py
+```
+Pass is the last line `fails 0` and exit code 0. Every line before that should say `PASS`. Any `FAIL` means do not sign off and do not start step 3. Paste the output back and stop.
+
+What that script checks, and nothing else:
+- the six old tools are still registered, in order, with `file_info` and `file_outline` added after them
+- the model result cap is 12,000 characters
+- a long result is cut, says `TRUNCATED`, and says `omitted`
+- a short result is unchanged
+- `file_info` on `specs/META-COS.md` matches size and sha256...
+
+## 2026-10-22T14:34:31.975034+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-22T14:34:56.639959+00:00
+- Dialog:
+  - In: PASS tools — list_dir, read_file, write_file, update_task, git, handoff, file_info, file_outline
+  - Tools: read_file, file_info (2 round(s))
+  - Out: That line is only the first check. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints that exact line when the registered tool list is the six live tools plus `file_info` and `file_outline`, in that order. That check passed.
+
+**What is still missing.** The script then checks the 12,000-character cap, truncation text, `file_info` size and sha256, markdown and JSON outlines, Python names, path escape, and a capped `read_file`. A pass is every line saying `PASS`, then a last line `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the full script output, including the `fails` line. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:35:08.740778+00:00
+- Dialog:
+  - In: PASS cap — 12000
+  - Tools: read_file (2 round(s))
+  - Out: That line is the second check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS cap — 12000` when `TOOL_RESULT_CHAR_LIMIT` is 12000. That check passed. The earlier tools line also passed.
+
+**Still missing.** The script then checks truncation, an unchanged short result, `file_info` size/sha256/mtime, markdown and JSON outlines, Python names, path escape, `read_file`, and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest of the script output, including the `fails` line. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:35:19.792281+00:00
+- Dialog:
+  - In: PASS truncate fits — len=80
+  - Tools: read_file (2 round(s))
+  - Out: That line is the third check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS truncate fits — len=80` when a 200-character string, capped at 80, comes back at length 80 or less and the text contains both `TRUNCATED` and `omitted`. That check passed. The tools line and the cap line also passed.
+
+**Still missing.** The script then checks an unchanged short result, `file_info` size/sha256/mtime, markdown and JSON outlines, Python names, path escape, `read_file`, and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest of the script output, including the `fails` line. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:35:29.580551+00:00
+- Dialog:
+  - In: PASS short unchanged
+  - Tools: read_file (2 round(s))
+  - Out: That line is the fourth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS short unchanged` when `_tool_result_text("hello")` returns `hello` unchanged. That check passed. The tools, cap, and truncate lines also passed.
+
+**Still missing.** Nine checks remain: `file_info` size, sha256, and mtime; markdown headings; JSON keys; Python names; path escape; `read_file`; and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest of the script output, including the `fails` line. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:35:41.595079+00:00
+- Dialog:
+  - In: PASS info size
+  - Tools: read_file (2 round(s))
+  - Out: That line is the fifth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS info size` when `file_info("specs/META-COS.md")` contains `size_bytes:` equal to the file length on disk. That check passed. The tools, cap, truncate, and short-unchanged lines also passed.
+
+**Still missing.** Eight checks remain: `info sha`, `info mtime`, markdown headings, JSON keys, Python names, path escape, `read_file`, and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest of the script output, including the `fails` line. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:35:52.169033+00:00
+- Dialog:
+  - In: PASS info sha
+  - Tools: read_file (2 round(s))
+  - Out: That line is the sixth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS info sha` when `file_info("specs/META-COS.md")` contains `sha256:` equal to the SHA-256 of that file on disk. That check passed. The tools, cap, truncate, short-unchanged, and info-size lines also passed.
+
+**Still missing.** Seven checks remain: `info mtime`, markdown headings, JSON keys, Python names, path escape, `read_file`, and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:01.437771+00:00
+- Dialog:
+  - In: PASS info mtime
+  - Tools: read_file (2 round(s))
+  - Out: That line is the seventh check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS info mtime` when `file_info("specs/META-COS.md")` contains `mtime_iso:` and a `T`. That check passed. The tools, cap, truncate, short-unchanged, info-size, and info-sha lines also passed.
+
+**Still missing.** Six checks remain: markdown headings, JSON keys, Python names, path escape, `read_file`, and the read cap. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:13.801750+00:00
+- Dialog:
+  - In: PASS md headings
+  - Tools: read_file (2 round(s))
+  - Out: That line is the eighth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS md headings` when `file_outline("specs/META-COS.md")` contains both `kind: markdown` and `L1 #`. That check passed. The seven lines before it also passed.
+
+**Still missing.** Five checks remain: `json keys`, `py names`, `escape`, `read_file`, and `read cap`. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:25.048155+00:00
+- Dialog:
+  - In: PASS json keys
+  - Tools: read_file (2 round(s))
+  - Out: That line is the ninth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS json keys` when `file_outline("protocol/toyota-4runner-2019.json")` contains `kind: json` and the first five top-level keys. That check passed. The eight lines before it also passed.
+
+**Still missing.** Four checks remain: `py names`, `escape`, `read_file`, and `read cap`. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:32.591857+00:00
+- Dialog:
+  - In: PASS py names
+  - Tools: read_file (2 round(s))
+  - Out: That line is the tenth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS py names` when `file_outline("cos/cos.py")` contains `kind: python`, `def file_info`, and `def read_file`. That check passed. The nine lines before it also passed.
+
+**Still missing.** Three checks remain: `escape`, `read_file`, and `read cap`. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:43.800186+00:00
+- Dialog:
+  - In: PASS escape — Path escapes workspace root
+  - Tools: read_file (2 round(s))
+  - Out: That line is the eleventh check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS escape — Path escapes workspace root` when `file_info("../outside.txt")` raises `ValueError` and the message contains `escapes`. That check passed. The ten lines before it also passed.
+
+**Still missing.** Two checks remain: `read_file` and `read cap`. A pass is every line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:36:52.103929+00:00
+- Dialog:
+  - In: PASS read_file
+  - Tools: read_file (2 round(s))
+  - Out: That line is the twelfth check only. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS read_file` when `read_file("README.md")` returns a non-empty string. That check passed. The eleven lines before it also passed.
+
+**Still missing.** One check remains: `read cap`. A pass is that line saying `PASS`, then `fails 0`, and exit code 0. I do not have those lines.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste the rest in one block, including the `fails` line. One line per turn is not required. If any line says `FAIL`, stop there.
+
+## 2026-10-22T14:37:03.674422+00:00
+- Dialog:
+  - In: PASS read cap — len=12000
+  - Tools: read_file (2 round(s))
+  - Out: That line is the thirteenth and last named check. It is not a full pass, and it is not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `PASS read cap — len=12000` when a capped `read_file` of `specs/META-COS.md` is at most 12,000 characters and contains both `TRUNCATED` and `omitted`. That check passed. The twelve lines before it also passed.
+
+**Still missing.** After that line the script prints `fails 0` and exits 0. I do not have that line. A full pass is every line saying `PASS`, then `fails 0`, and exit code 0.
+
+**Not done.** Step 2 stays awaiting sign-off. Step 3 stays blocked. I did not change any files.
+
+Paste `fails 0` if that is what printed. If it says `fails` with any number other than 0, stop there.
+
+## 2026-10-22T14:37:14.956884+00:00
+- Dialog:
+  - In: fails 0
+  - Tools: (none) (1 round(s))
+  - Out: That line completes the script check. It is a pass, not a sign-off.
+
+**What it matches.** `protocol/step2_self_test.py` prints `fails 0` only after every named check passed, then exits 0. Together with the thirteen `PASS` lines you already pasted, that is the full run I asked for.
+
+**Not done.** Step 2 stays awaiting your sign-off. Step 3 stays blocked. I did not change any files.
+
+A sign-off is a separate instruction, for example “I sign off step 2”. That still does not start step 3.
+
+## 2026-10-22T14:38:02.966864+00:00
+- Task: `tools-2-info` done — Add tool-result cap, file_info, and file_outline
+- Note: User signed off 2026-10-22: "I sign off step 2". Script passed (fails 0). Does not start step 3.
+
+## 2026-10-22T14:38:02.997371+00:00
+- Task: `tools-3-read` open — Add partial reads: range, head, tail, search_in_file
+- Note: Step 2 signed off. Eligible, not started. Needs its own instruction. No search or patch in this step.
+
+## 2026-10-22T14:38:23.297952+00:00
+- File change: wrote `specs/cos-tools-plan.md` (10110 bytes)
+
+## 2026-10-22T14:38:25.609535+00:00
+- Dialog:
+  - In: I sign off step 2
+  - Tools: file_outline, file_info, file_outline, read_file, read_file, update_task, update_task, write_file (6 round(s))
+  - Out: Sign-off accepted. Step 2 is closed. Step 3 was not started.
+
+**What "I sign off step 2" covered**
+- The thirteen `PASS` lines and `fails 0` from `protocol/step2_self_test.py`.
+- The 12,000-character cap, `file_info`, and `file_outline`, added beside the six live tools.
+
+**Recorded**
+- `tools-2-info` stays done, with the sign-off note.
+- `tools-3-read` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 2 is signed off and step 3 is not started.
+
+**Not done**
+- No `cos/cos.py` change. No partial reads.
+- No commit. That needs `approve git commit` in a later directive.
+
+Step 3 still needs its own instruction, for example "do step 3".

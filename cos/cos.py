@@ -7,7 +7,8 @@ backlog pressure: questions and statements are not permission to act.
 Each Grok call is prefixed with up to 1_000_000 bytes of deep context
 from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 10 rounds).
-Tools: list_dir, read_file, write_file, update_task, git, handoff. No shell.
+Tools: list_dir, read_file, write_file, update_task, git, handoff,
+file_info, file_outline. No shell. No search. No patch.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
@@ -18,8 +19,14 @@ directive. Paths must stay inside the workspace. No force, no config writes.
 A successful push ends the tool loop. Logging rewrites context and the event
 log, so chasing a clean tree after push never converges inside one turn.
 If the round cap is hit, one extra no-tools call produces the final answer.
+
+Step 2 (specs/cos-tools-plan.md): tool results returned to the model are
+capped at 12,000 characters. A truncated result says so and names the
+omitted count. The file on disk is unchanged. file_info and file_outline
+are additive. They do not replace read_file or write_file.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -50,7 +57,16 @@ MAX_ENTRY_CHARS = 4000
 # are executed before the next call. Stop at a final answer or this cap.
 # The cap does not include the one no-tools summary call used when it is hit.
 MAX_TOOL_ROUNDS = 10
-TOOL_RESULT_CHAR_LIMIT = 120_000
+# Step 2. Text returned to the model, not a limit on the file on disk.
+# A truncated result must say it was truncated and how much was omitted.
+TOOL_RESULT_CHAR_LIMIT = 12_000
+
+# file_outline bounds. These limit outline work, not the tool-result cap.
+OUTLINE_MAX_BYTES = 2_000_000
+OUTLINE_MAX_LINES = 8_000
+OUTLINE_MAX_ITEMS = 200
+EDGE_LINES = 8
+EDGE_CHARS = 120
 
 # Directory listing is bounded, workspace-scoped, and does not follow symlinks.
 LIST_DIR_MAX_ENTRIES = 400
@@ -68,6 +84,22 @@ TASK_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 TASK_LINE_RE = re.compile(
     r"^- \[(?P<mark>[ xX])\] \*\*(?P<id>[a-z0-9][a-z0-9-]{0,39})\*\* "
     r"\((?P<status>open|doing|blocked|done)\) (?P<title>.+)$"
+)
+
+_MD_HEADING = re.compile(r"^(#{1,6})[ \t]+(\S.*)$")
+_PY_DEF = re.compile(
+    r"^([ \t]*)(?:async[ \t]+)?def[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\("
+)
+_PY_CLASS = re.compile(r"^([ \t]*)class[ \t]+([A-Za-z_][A-Za-z0-9_]*)\b")
+_KT_FUN = re.compile(
+    r"^([ \t]*)(?:(?:public|private|internal|protected|open|override|"
+    r"suspend|inline|tailrec|operator|infix|external)[ \t]+)*"
+    r"fun[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*\("
+)
+_KT_CLASS = re.compile(
+    r"^([ \t]*)(?:(?:public|private|internal|protected|open|abstract|"
+    r"sealed|data|enum|inner|value)[ \t]+)*"
+    r"(class|interface|object)[ \t]+([A-Za-z_][A-Za-z0-9_]*)\b"
 )
 
 # Console wrap. File writes are never wrapped. Width is re-read per print so a
@@ -102,11 +134,13 @@ AGENT_SYSTEM_EXTRA = (
     "Ask-first is locked (cos/prompts/ask-first.md). "
     "If the current directive is a question, statement, or observation, "
     "do not call write_file, update_task, handoff, or git add/commit/push. "
-    "You may call list_dir and read_file only when a read is required to answer. "
+    "You may call list_dir, read_file, file_info, and file_outline only when a read is required to answer. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
-    "handoff(task). "
+    "handoff(task), file_info(path), file_outline(path). "
+    "file_info and file_outline are additive. They do not replace read_file or write_file. "
+    "Prefer file_info or file_outline before a full read of a large file. "
     "Use list_dir first when you need to see what files exist; do not guess paths. "
     "list_dir path is workspace-relative; pass '.' for the workspace root. "
     "It returns workspace-relative paths you can pass to read_file. "
@@ -128,9 +162,13 @@ AGENT_SYSTEM_EXTRA = (
     "Logging rewrites cos/context.md and cos/event_log.jsonl after every git action, "
     "so a clean tree after push is impossible inside the same turn. "
     "Leave that residual dirty state for the next directive. "
-    "Do not stage protocol/test.txt or protocol/overflow_test.py. "
+    "Do not stage protocol/test.txt, protocol/overflow_test.py, protocol/step2_self_test.py, or cos/file_info.py. "
     "You may call tools across multiple rounds; results are returned to you in this turn. "
     "The tool loop is capped at 10 rounds. Prefer a final answer before the cap. "
+    "Tool results returned to you are capped at 12,000 characters. "
+    "A truncated result says TRUNCATED and how many characters were omitted. "
+    "Do not treat a truncated read as the whole file. "
+    "Until partial reads exist, use file_info or file_outline, or read a smaller file. "
     "Do not claim you cannot read or list local files. "
     "Do not emit manual CLI lines (list:, read:, write:, improve:, handoff:, tasks); "
     "those are user commands, not your interface. "
@@ -172,7 +210,11 @@ TOOLS = [
             "name": "read_file",
             "description": (
                 "Read a UTF-8 text file from the COS workspace by relative path. "
-                "Path must stay inside the workspace (example: cos/cos.py, specs/META-COS.md)."
+                "Path must stay inside the workspace (example: cos/cos.py, specs/META-COS.md). "
+                "Full file on disk. The text returned to the model is capped at 12,000 characters. "
+                "A truncated result says so and how many characters were omitted. "
+                "Do not treat a truncated read as the whole file. "
+                "Prefer file_info or file_outline for a large file."
             ),
             "parameters": {
                 "type": "object",
@@ -309,6 +351,51 @@ TOOLS = [
                     }
                 },
                 "required": ["task"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_info",
+            "description": (
+                "Return size_bytes, line_count, mtime_iso, and sha256 for one workspace file. "
+                "Does not return file content. Path must stay inside the workspace. "
+                "Use this before read_file when the file may be large. "
+                "Does not replace read_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    }
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_outline",
+            "description": (
+                "Return a structural summary of one workspace file. "
+                "Markdown: headings with line numbers. JSON: top-level keys. "
+                "Python and Kotlin: class and function names with line numbers. "
+                "Other text: first and last few lines. Does not return the file body. "
+                "Path must stay inside the workspace. Does not replace read_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    }
+                },
+                "required": ["path"],
             },
         },
     },
@@ -964,6 +1051,223 @@ def write_file(rel_path: str, content: str) -> Path:
     )
     append_context(f"- File change: wrote `{rel_path}` ({nbytes} bytes)")
     return target
+
+
+def _outline_line(text: str, limit: int = EDGE_CHARS) -> str:
+    return _one_line(text, limit)
+
+
+def _line_count_bytes(data: bytes) -> int:
+    """Line count matching str.splitlines() for UTF-8 text bytes."""
+    if not data:
+        return 0
+    n = data.count(b"\n") + data.count(b"\r") - data.count(b"\r\n")
+    if not data.endswith((b"\n", b"\r")):
+        n += 1
+    return n
+
+
+def file_info(rel_path: str) -> str:
+    """Return size, line count, mtime, and sha256. Does not return content.
+
+    Raises on escape, missing path, or a directory. Does not replace read_file.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    raw = rel_path.strip().replace("\\", "/")
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    data = target.read_bytes()
+    try:
+        mtime = datetime.fromtimestamp(target.stat().st_mtime, timezone.utc)
+        mtime_iso = mtime.isoformat()
+    except OSError:
+        mtime_iso = ""
+    shown = raw.lstrip("./") or raw
+    text = "\n".join([
+        f"path: {shown}",
+        f"size_bytes: {len(data)}",
+        f"line_count: {_line_count_bytes(data)}",
+        f"mtime_iso: {mtime_iso}",
+        f"sha256: {hashlib.sha256(data).hexdigest()}",
+    ])
+    log_event(
+        "file_info",
+        f"Info {raw}",
+        detail={"path": raw, "bytes": len(data)},
+    )
+    return text
+
+
+def _markdown_items(text: str):
+    items = []
+    truncated = False
+    for i, line in enumerate(text.splitlines(), 1):
+        if i > OUTLINE_MAX_LINES:
+            truncated = True
+            break
+        match = _MD_HEADING.match(line)
+        if not match:
+            continue
+        level = len(match.group(1))
+        title = _outline_line(match.group(2).strip(), 100)
+        items.append(f"L{i} {'#' * level} {title}")
+        if len(items) >= OUTLINE_MAX_ITEMS:
+            truncated = True
+            break
+    return items, truncated
+
+
+def _json_items(text: str):
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        return [f"note: JSON parse failed: {e}"], False
+    if isinstance(data, dict):
+        keys = list(data.keys())
+        items = [f"key: {_outline_line(str(k), 80)}" for k in keys[:OUTLINE_MAX_ITEMS]]
+        return items, len(keys) > OUTLINE_MAX_ITEMS
+    if isinstance(data, list):
+        return [f"top-level: array length {len(data)}"], False
+    return [f"top-level: {type(data).__name__}"], False
+
+
+def _code_items(text: str, suffix: str):
+    items = []
+    truncated = False
+    use_kt = suffix in (".kt", ".kts")
+    for i, line in enumerate(text.splitlines(), 1):
+        if i > OUTLINE_MAX_LINES:
+            truncated = True
+            break
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("//"):
+            continue
+        kind = ""
+        name = ""
+        indent = 0
+        if use_kt:
+            cm = _KT_CLASS.match(line)
+            fm = _KT_FUN.match(line)
+            if cm:
+                kind = cm.group(2)
+                name = cm.group(3)
+                indent = len(cm.group(1).replace("\t", "    "))
+            elif fm:
+                kind = "fun"
+                name = fm.group(2)
+                indent = len(fm.group(1).replace("\t", "    "))
+        else:
+            cm = _PY_CLASS.match(line)
+            fm = _PY_DEF.match(line)
+            if cm:
+                kind = "class"
+                name = cm.group(2)
+                indent = len(cm.group(1).replace("\t", "    "))
+            elif fm:
+                kind = "def"
+                name = fm.group(2)
+                indent = len(fm.group(1).replace("\t", "    "))
+        if not kind:
+            continue
+        depth = min(indent // 4, 6)
+        items.append(f"L{i} {'  ' * depth}{kind} {name}")
+        if len(items) >= OUTLINE_MAX_ITEMS:
+            truncated = True
+            break
+    return items, truncated
+
+
+def _edge_items(text: str):
+    rows = text.splitlines()
+    total = len(rows)
+    if total == 0:
+        return ["(empty file)"]
+    items = [f"first L{i}: {_outline_line(line)}" for i, line in enumerate(rows[:EDGE_LINES], 1)]
+    if total > EDGE_LINES:
+        tail = rows[-EDGE_LINES:]
+        start = total - len(tail) + 1
+        if start <= EDGE_LINES:
+            tail = rows[EDGE_LINES:]
+            start = EDGE_LINES + 1
+        if tail:
+            items.append("---")
+            items.extend(
+                f"last L{start + j}: {_outline_line(line)}" for j, line in enumerate(tail)
+            )
+    items.append(f"line_count: {total}")
+    return items
+
+
+def file_outline(rel_path: str) -> str:
+    """Structural summary. Does not return the file body. Does not replace read_file.
+
+    Markdown headings, JSON top-level keys, Python/Kotlin names, or edge lines.
+    Raises on escape, missing path, or a directory.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    raw = rel_path.strip().replace("\\", "/")
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    shown = raw.lstrip("./") or raw
+    suffix = target.suffix.lower()
+    try:
+        size = target.stat().st_size
+    except OSError as e:
+        raise ValueError(f"cannot stat file: {e}") from e
+    header = [f"path: {shown}"]
+    if size > OUTLINE_MAX_BYTES:
+        header.append("kind: skipped")
+        header.append(
+            f"file is {size} bytes; outline skipped above {OUTLINE_MAX_BYTES} bytes. "
+            "Use file_info. Full read_file still works, subject to the tool-result cap."
+        )
+        log_event("file_outline", f"Outline skipped {raw}", detail={"path": raw, "bytes": size})
+        return "\n".join(header)
+    try:
+        text = target.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        header.append("kind: skipped")
+        header.append("not valid UTF-8; outline skipped. Use file_info.")
+        log_event("file_outline", f"Outline skipped {raw}", detail={"path": raw, "reason": "utf-8"})
+        return "\n".join(header)
+    except OSError as e:
+        raise ValueError(f"cannot read file: {e}") from e
+
+    if suffix == ".md":
+        kind = "markdown"
+        items, truncated = _markdown_items(text)
+    elif suffix == ".json":
+        kind = "json"
+        items, truncated = _json_items(text)
+    elif suffix in (".py", ".kt", ".kts"):
+        kind = "kotlin" if suffix in (".kt", ".kts") else "python"
+        items, truncated = _code_items(text, suffix)
+    else:
+        kind = "text"
+        items = _edge_items(text)
+        truncated = False
+    if not items:
+        items = ["(no structural items)"]
+    header.append(f"kind: {kind}")
+    header.append(f"items: {len(items)}")
+    if truncated:
+        header.append(
+            f"truncated: yes (cap {OUTLINE_MAX_ITEMS} items or {OUTLINE_MAX_LINES} lines)"
+        )
+    log_event(
+        "file_outline",
+        f"Outline {raw}",
+        detail={"path": raw, "kind": kind, "items": len(items), "truncated": truncated},
+    )
+    return "\n".join(header + items)
 
 
 def list_dir(rel_path: str = ".") -> str:
@@ -1711,16 +2015,45 @@ def emit_handoff(task: str) -> str:
     return handoff_prompt
 
 
-def _tool_result_text(text: str) -> str:
+def _tool_result_text(text: str, limit: int = None) -> str:
+    """Cap text returned to the model. Does not change the file on disk.
+
+    The returned string is always at most `limit` characters. A truncated
+    result names the original length and the omitted count. The omitted count
+    is measured against the original, not against a prefix that was later
+    shortened to fit the notice. Until step 3, that notice is the recovery
+    path. file_info and file_outline are the other recovery path.
+    """
     if not isinstance(text, str):
         text = str(text)
-    if len(text) <= TOOL_RESULT_CHAR_LIMIT:
+    if limit is None:
+        limit = TOOL_RESULT_CHAR_LIMIT
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = TOOL_RESULT_CHAR_LIMIT
+    if limit < 1:
+        limit = 1
+    original = len(text)
+    if original <= limit:
         return text
-    omitted = len(text) - TOOL_RESULT_CHAR_LIMIT
-    return (
-        text[:TOOL_RESULT_CHAR_LIMIT]
-        + f"\n\n[TRUNCATED: tool result omitted {omitted} characters]\n"
-    )
+    # Fixed-width note so the omitted count cannot push the result over the cap.
+    # "omitted N of M" uses the original length. Shown prefix is limit minus note.
+    note = (
+        "\n[TRUNCATED not whole; omitted %d of %d; "
+        "use file_info or file_outline; partial reads are step 3]\n"
+    ) % (original - limit, original)
+    # If the note itself is longer than the cap, hard-cut the note only.
+    if len(note) >= limit:
+        return note[:limit]
+    # Recompute omitted against the original, then shrink the prefix so
+    # prefix + note <= limit. The note's omitted figure stays the original gap
+    # (original - limit), which is the policy number, not the fitted gap.
+    room = limit - len(note)
+    fitted = text[:room] + note
+    if len(fitted) > limit:
+        fitted = fitted[:limit]
+    return fitted
 
 
 def _message_from_response(data):
@@ -1809,7 +2142,12 @@ def _parse_tool_args(raw):
 
 
 def execute_tool(name: str, arguments: dict, round_i: int) -> str:
-    """Run one tool call. Prints one trace line. Never raises."""
+    """Run one tool call. Prints one trace line. Never raises.
+
+    A failure in file_info or file_outline returns an error string. It does
+    not unregister or alter list_dir, read_file, write_file, update_task,
+    git, or handoff.
+    """
     if not isinstance(arguments, dict):
         arguments = {}
     label = name or "(unnamed)"
@@ -1916,6 +2254,31 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
                 "Claude hand-off prompt emitted to the user for task: "
                 + _clip(task, 300)
             )
+        if name == "file_info":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            text = file_info(rel)
+            emit(f"[tool] file_info {rel}")
+            log_event(
+                "tool_exec",
+                f"file_info {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "file_outline":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            text = file_outline(rel)
+            nlines = text.count("\n") + (1 if text else 0)
+            emit(f"[tool] file_outline {rel} -> {nlines} lines")
+            log_event(
+                "tool_exec",
+                f"file_outline {rel}",
+                detail={"tool": name, "path": rel, "lines": nlines, "round": round_i},
+            )
+            return text
         raise ValueError(f"unknown tool: {name}")
     except Exception as e:
         err = _clip(str(e), 300)
@@ -2247,6 +2610,7 @@ def print_commands():
     emit("Commit/push need 'approve git commit' or 'approve git push' in the directive.")
     emit("One commit and one push per turn. A successful push ends the turn.")
     emit("Ask-first is locked: questions and statements are not permission to act.")
+    emit("Tool results to the model are capped at 12,000 characters.")
 
 
 def _repl_git(user_input: str) -> None:
@@ -2298,6 +2662,8 @@ def main():
             "policy_file_bytes": policy_bytes,
             "context_file_bytes": ctx_bytes,
             "tasks_file_bytes": task_bytes,
+            "tool_result_char_limit": TOOL_RESULT_CHAR_LIMIT,
+            "tools": [t["function"]["name"] for t in TOOLS],
         },
     )
     append_context(
