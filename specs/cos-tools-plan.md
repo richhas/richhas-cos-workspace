@@ -291,7 +291,70 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 ## What the tools-split sign-off does not do
 
 - Signed off 2026-10-23 by "sign off". Tool bodies are in `cos/tools_impl.py`. The dispatcher reloads that file on each call. Disk test passed (`fails 0`).
-- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
+- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted until booked below.
 - Does not restore the 12,000-character tool-result cap.
 - Does not commit or push. Do not stage `protocol/split_self_test.py` or `protocol/split_cos_tools.py`.
+- Does not start `closed-loop` or `routing-load`.
+
+## Step 9 — append_file
+
+**Status:** booked 2026-10-23 by "Lock on the next slice as your Remaining writes". Next eligible. Not started. Needs its own instruction, for example "do step 9".
+
+**Add:** `append_file(path, content)` only. Creates the file if missing. Returns a summary. Additive. The live tools stay, including `write_file` and `patch_file`.
+
+**Does not add:** `insert_at_line`, `replace_range`, `apply_patches`, copy/move, `create_files`, context tools, `run_command`, or a Claude client.
+
+**Gates:** workspace path only. Cannot edit `cos/tasks.md`. Ask-first still applies. Cap stays off. No shell. No commit.
+
+**Verify:** append to an existing scratch file, create a missing scratch file, refuse `cos/tasks.md`, refuse a path outside the workspace. `write_file` and `patch_file` still work. Then you sign off.
+
+## Step 10 — insert_at_line
+
+**Status:** booked. Blocked on step 9 sign-off. Not started by this booking.
+
+**Add:** `insert_at_line(path, line_number, content)` only. Inserts before the given 1-based line. Returns a summary.
+
+**Does not add:** `replace_range`, `apply_patches`, or anything in §3.4–§3.7.
+
+**Gates:** same as step 9. An out-of-range line errors and does not write. Newline style is preserved. No CR CR LF.
+
+**Verify:** insert before line 1, insert in the middle, refuse an out-of-range line, refuse `cos/tasks.md`. CRLF stays CRLF. Then you sign off.
+
+## Step 11 — replace_range
+
+**Status:** booked. Blocked on step 10 sign-off. Not started by this booking.
+
+**Add:** `replace_range(path, start_line, end_line, new_content)` only. Replaces the inclusive line span. Returns a summary.
+
+**Does not add:** `apply_patches` or anything in §3.4–§3.7.
+
+**Gates:** same as step 9. An inverted or out-of-range span errors and does not write. Newline style is preserved.
+
+**Verify:** replace a middle span, refuse an inverted span, refuse `cos/tasks.md`. Then you sign off.
+
+## Step 12 — apply_patches
+
+**Status:** booked. Blocked on step 11 sign-off. Not started by this booking.
+
+**Add:** `apply_patches(patches)` only. `patches` is a list of `{path, search, replace}` or `{path, start_line, end_line, new_content}`. Applied sequentially. Returns a combined summary. Stops on first error and reports what succeeded.
+
+**Does not add:** copy/move, `create_files`, context tools, `run_command`, or a Claude client. This is not a multi-file free write and not a shell.
+
+**Gates:** each patch obeys the same path and `cos/tasks.md` rules. A failed later patch does not roll back earlier successes; the summary names them. Cap stays off.
+
+**Verify:** two successful patches, then a third that fails and stops. A `cos/tasks.md` patch does not write. Then you sign off.
+
+## Round cap 40
+
+Signed off 2026-10-23 by "sign off". The earlier sign-off died on SSL before it could record. `MAX_TOOL_ROUNDS` is 40 in `cos/cos.py`. Not live until restart. Same stop rules: a hit still asks for one no-tools final answer; a successful push still ends the turn. Does not start step 9. Does not restore the 12,000-character tool-result cap.
+
+## What booking steps 9–12 does not do
+
+- Does not add a tool. The later round-cap write is recorded above; it is not step 9.
+- Does not add `append_file`, `insert_at_line`, `replace_range`, or `apply_patches`.
+- Does not start step 9. That needs its own instruction, for example "do step 9".
+- Does not start §3.4 (`copy_file`, `move_file`, `create_files`, `file_set_hash`). Those are multi-file utilities, not this slice.
+- Does not start context tools, §3.6, §3.7, or the Claude client.
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push.
 - Does not start `closed-loop` or `routing-load`.

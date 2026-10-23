@@ -6,7 +6,7 @@ Loads cos/prompts/ask-first.md on each prompt build. That policy overrides
 backlog pressure: questions and statements are not permission to act.
 Each Grok call is prefixed with up to 1_000_000 bytes of deep context
 from cos/context.md plus a compact tail of event_log.jsonl.
-Normal user messages run an agentic tool-calling loop (max 25 rounds).
+Normal user messages run an agentic tool-calling loop (max 40 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
 file_info, file_outline, read_file_range, read_file_head, read_file_tail,
 search_in_file, search_files, list_files, patch_file, run_check.
@@ -61,7 +61,7 @@ MAX_ENTRY_CHARS = 4000
 # Agentic loop: one round is one Grok API call. Tool calls in that response
 # are executed before the next call. Stop at a final answer or this cap.
 # The cap does not include the one no-tools summary call used when it is hit.
-MAX_TOOL_ROUNDS = 25
+MAX_TOOL_ROUNDS = 40
 # Tool-result character cap stays off (user 2026-10-23).
 # None means _tool_result_text returns the full string.
 # Do not restore until partial IO is in place and the user verifies that.
@@ -215,7 +215,7 @@ AGENT_SYSTEM_EXTRA = (
     "Do not stage protocol/test.txt, protocol/overflow_test.py, protocol/step2_self_test.py, "
     "protocol/step3_self_test.py, protocol/_fix_search_ctx.py, or cos/file_info.py. "
     "You may call tools across multiple rounds; results are returned to you in this turn. "
-    "The tool loop is capped at 25 rounds. Prefer a final answer before the cap. "
+    "The tool loop is capped at 40 rounds. Prefer a final answer before the cap. "
     "The tool-result character cap stays off until partial IO is verified with the user. "
     "Do not restore the 12,000-character cap in this step. "
     "read_file returns the full file. "
@@ -2064,7 +2064,7 @@ def _finish_without_tools(messages, headers, context_bytes, truncated, reason: s
 def ask_grok_with_tools(user_input: str) -> str:
     """Call Grok with tools until a final answer, a push, or the round cap.
 
-    The cap is 25 tool rounds. Hitting it triggers one no-tools summary call
+    The cap is 40 tool rounds. Hitting it triggers one no-tools summary call
     so the user still gets an answer. A successful push ends the turn without
     another model round, because logging would dirty the tree again.
     """
