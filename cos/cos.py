@@ -6,15 +6,18 @@ Loads cos/prompts/ask-first.md on each prompt build. That policy overrides
 backlog pressure: questions and statements are not permission to act.
 Each Grok call is prefixed with up to 1_000_000 bytes of deep context
 from cos/context.md plus a compact tail of event_log.jsonl.
-Normal user messages run an agentic tool-calling loop (max 10 rounds).
+Normal user messages run an agentic tool-calling loop (max 25 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
 file_info, file_outline, read_file_range, read_file_head, read_file_tail,
-search_in_file, search_files, list_files, patch_file. No shell.
+search_in_file, search_files, list_files, patch_file, run_check.
+run_check runs python on one workspace script. It is not a shell.
 patch_file is one unique literal match and a short diff. It does not replace write_file.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
 Git is a bounded subprocess of the git binary only. No general shell.
+run_check is a bounded subprocess of the python binary only. One workspace
+script, no flags, no shell, 60 second timeout. It does not run cos/cos.py.
 Commit and push require an explicit user approval phrase in the current
 directive. Paths must stay inside the workspace. No force, no config writes.
 
@@ -58,7 +61,7 @@ MAX_ENTRY_CHARS = 4000
 # Agentic loop: one round is one Grok API call. Tool calls in that response
 # are executed before the next call. Stop at a final answer or this cap.
 # The cap does not include the one no-tools summary call used when it is hit.
-MAX_TOOL_ROUNDS = 10
+MAX_TOOL_ROUNDS = 25
 # Tool-result character cap stays off (user 2026-10-23).
 # None means _tool_result_text returns the full string.
 # Do not restore until partial IO is in place and the user verifies that.
@@ -131,6 +134,14 @@ CONSOLE_WIDTH_DEFAULT = 80
 GIT_TIMEOUT_SEC = 120
 GIT_OUTPUT_CHAR_LIMIT = 20_000
 GIT_ACTIONS = ("status", "diff", "log", "add", "commit", "push")
+
+# Bounded local check. Python binary only. Not a shell. Not run_command.
+# One workspace script, args that are not flags, 60 second timeout.
+# Refuses anything under cos/. Does not commit. Does not restore the result cap.
+RUN_CHECK_TIMEOUT_SEC = 60
+RUN_CHECK_OUTPUT_CHAR_LIMIT = 12_000
+RUN_CHECK_MAX_ARGS = 8
+RUN_CHECK_ARG_MAX = 200
 GIT_APPROVAL_RE = re.compile(
     r"\b(?:approve|approved|approval)\s+git\s+(commit|push)\b",
     re.IGNORECASE,
@@ -155,9 +166,9 @@ AGENT_SYSTEM_EXTRA = (
     "do not call write_file, update_task, handoff, or git add/commit/push. "
     "You may call list_dir, read_file, file_info, file_outline, "
     "read_file_range, read_file_head, read_file_tail, search_in_file, "
-    "search_files, list_files, and patch_file "
+    "search_files, list_files, patch_file, and run_check "
     "only when a read is required to answer. "
-    "patch_file is a write. Do not call it while discussing. "
+    "patch_file is a write. run_check runs a script. Do not call either while discussing. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
@@ -166,8 +177,9 @@ AGENT_SYSTEM_EXTRA = (
     "read_file_tail(path, n), search_in_file(path, pattern, context_lines), "
     "search_files(pattern, path, context_lines), "
     "list_files(path, glob, recursive), "
-    "patch_file(path, search, replace, replace_all). "
-    "file_info, file_outline, the partial reads, search_files, list_files, and patch_file are additive. "
+    "patch_file(path, search, replace, replace_all), "
+    "run_check(path, args). "
+    "file_info, file_outline, the partial reads, search_files, list_files, patch_file, and run_check are additive. "
     "They do not replace read_file or write_file. "
     "patch_file is one file, one literal search. "
     "If replace_all is false and the search is not unique, it errors and does not write. "
@@ -203,7 +215,7 @@ AGENT_SYSTEM_EXTRA = (
     "Do not stage protocol/test.txt, protocol/overflow_test.py, protocol/step2_self_test.py, "
     "protocol/step3_self_test.py, protocol/_fix_search_ctx.py, or cos/file_info.py. "
     "You may call tools across multiple rounds; results are returned to you in this turn. "
-    "The tool loop is capped at 10 rounds. Prefer a final answer before the cap. "
+    "The tool loop is capped at 25 rounds. Prefer a final answer before the cap. "
     "The tool-result character cap stays off until partial IO is verified with the user. "
     "Do not restore the 12,000-character cap in this step. "
     "read_file returns the full file. "
@@ -211,7 +223,10 @@ AGENT_SYSTEM_EXTRA = (
     "Do not claim you cannot read or list local files. "
     "Do not emit manual CLI lines (list:, read:, write:, improve:, handoff:, tasks); "
     "those are user commands, not your interface. "
-    "Do not run shell or network actions other than the git tool; only the provided tools. "
+    "Do not run shell or network actions other than the git tool and run_check; only the provided tools. "
+    "run_check is python plus one workspace script. It is not a shell, not run_command, and not git. "
+    "It refuses flags, absolute paths, '..', and anything under cos/. Timeout is 60 seconds. "
+    "A failed check does not write files by itself. Do not stage the check script. "
     "write_file content must be the raw file body, with no markdown fences. "
     "The user sees only a one-line trace per tool call, not the tool result body, "
     "so your final answer must include the findings, decisions, and paths you changed. "
@@ -651,6 +666,36 @@ TOOLS = [
                     },
                 },
                 "required": ["path", "search", "replace"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_check",
+            "description": (
+                "Run one workspace Python script as a bounded check. "
+                "Command shape is python plus one workspace-relative script path "
+                "and optional args that are not flags. "
+                "shell=False. No cmd, no PowerShell, no git, no network. "
+                "Timeout 60 seconds. Stdout and stderr are each capped at 12,000 characters. "
+                "Refuses absolute paths, '..', and anything under cos/. "
+                "Does not stage the script. Does not commit. Not a shell. Not run_command."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative script path. Not under cos/. No absolute path. No '..'.",
+                    },
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional args. Not flags. No leading dash. Max 8. Each max 200 characters.",
+                    },
+                },
+                "required": ["path"],
             },
         },
     },
@@ -2297,6 +2342,150 @@ def list_dir(rel_path: str = ".") -> str:
     return text
 
 
+def _check_output_text(raw: str, label: str) -> str:
+    """Cap one captured stream. Say when truncated. Does not change the file."""
+    if raw is None:
+        raw = ""
+    if not isinstance(raw, str):
+        raw = str(raw)
+    raw = raw.replace("\r\n", "\n")
+    limit = RUN_CHECK_OUTPUT_CHAR_LIMIT
+    if len(raw) <= limit:
+        return raw
+    omitted = len(raw) - limit
+    return (
+        raw[:limit]
+        + f"\nTRUNCATED {label}: omitted {omitted} characters\n"
+    )
+
+
+def _normalize_check_args(args) -> list:
+    """Args that are not flags. Empty is allowed. Never returns a dash arg."""
+    if args is None:
+        return []
+    if isinstance(args, str):
+        raise ValueError("args must be a list of strings, not a string")
+    if not isinstance(args, (list, tuple)):
+        raise ValueError("args must be a list of strings")
+    if len(args) > RUN_CHECK_MAX_ARGS:
+        raise ValueError(f"too many args ({len(args)}); max {RUN_CHECK_MAX_ARGS}")
+    out = []
+    for item in args:
+        if not isinstance(item, str):
+            raise ValueError("each arg must be a string")
+        if item == "" or item.strip() != item:
+            raise ValueError("args must be non-empty and not padded with space")
+        if len(item) > RUN_CHECK_ARG_MAX:
+            raise ValueError(f"arg longer than {RUN_CHECK_ARG_MAX} characters")
+        if item.startswith("-") or item.startswith("/") or item.startswith("\\"):
+            raise ValueError(f"refusing flag arg: {item}")
+        if "\n" in item or "\r" in item or "\x00" in item:
+            raise ValueError("refusing arg with a newline or NUL")
+        out.append(item)
+    return out
+
+
+def _check_script_path(rel_path: str) -> Path:
+    """Resolve one workspace script. Refuse cos/, escapes, and non-files."""
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    raw = rel_path.strip().replace("\\", "/")
+    if raw.startswith("/") or (len(raw) >= 2 and raw[1] == ":"):
+        raise ValueError("absolute path refused")
+    if ".." in raw.split("/"):
+        raise ValueError("path with .. refused")
+    norm = raw.lstrip("./").rstrip("/")
+    if not norm:
+        raise ValueError("path is required")
+    parts = norm.split("/")
+    if parts[0] == "cos":
+        raise ValueError("refusing a script under cos/")
+    if norm in ("cos/cos.py", "cos.py"):
+        raise ValueError("refusing to run cos/cos.py")
+    target = resolve_safe(norm)
+    if target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    if not target.is_file():
+        raise FileNotFoundError(norm)
+    root = ROOT.resolve()
+    resolved = target.resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError("Path escapes workspace root")
+    rel = resolved.relative_to(root).as_posix()
+    if rel == "cos" or rel.startswith("cos/"):
+        raise ValueError("refusing a script under cos/")
+    return resolved
+
+
+def run_check(rel_path: str, args=None) -> str:
+    """Run python on one workspace script. Not a shell. Not run_command.
+
+    shell=False. No git, no network tool, no flags. Timeout 60 seconds.
+    A non-zero exit is returned as text, not raised, so a failing check
+    can be read and corrected in the same turn. Timeout and path refusal
+    still raise. This function does not write the script and does not commit.
+    """
+    script = _check_script_path(rel_path)
+    arg_list = _normalize_check_args(args)
+    py = sys.executable
+    if not py or not isinstance(py, str):
+        raise RuntimeError("python executable not available")
+    root = str(ROOT.resolve())
+    argv = [py, str(script)] + arg_list
+    for arg in argv[2:]:
+        if arg.startswith("-"):
+            raise ValueError(f"refusing unexpected flag: {arg}")
+    shown = script.relative_to(ROOT.resolve()).as_posix()
+    log_event(
+        "check_call",
+        f"run_check {shown}",
+        refs=[shown],
+        detail={"path": shown, "args": arg_list, "timeout": RUN_CHECK_TIMEOUT_SEC},
+    )
+    try:
+        result = subprocess.run(
+            argv,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=RUN_CHECK_TIMEOUT_SEC,
+            shell=False,
+        )
+    except subprocess.TimeoutExpired as e:
+        log_event(
+            "check_result",
+            f"run_check {shown} timed out",
+            detail={"path": shown, "timeout": RUN_CHECK_TIMEOUT_SEC},
+        )
+        raise RuntimeError(
+            f"run_check timed out after {RUN_CHECK_TIMEOUT_SEC}s: {shown}"
+        ) from e
+    except OSError as e:
+        raise RuntimeError(f"run_check failed to start: {e}") from e
+    stdout = _check_output_text(result.stdout or "", "stdout")
+    stderr = _check_output_text(result.stderr or "", "stderr")
+    text = "\n".join([
+        f"path: {shown}",
+        f"exit: {result.returncode}",
+        "stdout:",
+        stdout if stdout else "(empty)",
+        "stderr:",
+        stderr if stderr else "(empty)",
+    ])
+    log_event(
+        "check_result",
+        f"run_check {shown} exit {result.returncode}",
+        detail={
+            "path": shown,
+            "exit": result.returncode,
+            "output_preview": _clip(text, 400),
+        },
+    )
+    return text
+
+
 def _git_binary() -> str:
     """Locate the git executable. Never returns a shell."""
     found = shutil.which("git")
@@ -3253,6 +3442,18 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
                 detail={"tool": name, "path": rel, "round": round_i},
             )
             return text
+        if name == "run_check":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            text = run_check(rel, arguments.get("args"))
+            emit(f"[tool] run_check {rel}")
+            log_event(
+                "tool_exec",
+                f"run_check {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
         raise ValueError(f"unknown tool: {name}")
     except Exception as e:
         err = _clip(str(e), 300)
@@ -3328,7 +3529,7 @@ def _finish_without_tools(messages, headers, context_bytes, truncated, reason: s
 def ask_grok_with_tools(user_input: str) -> str:
     """Call Grok with tools until a final answer, a push, or the round cap.
 
-    The cap is 10 tool rounds. Hitting it triggers one no-tools summary call
+    The cap is 25 tool rounds. Hitting it triggers one no-tools summary call
     so the user still gets an answer. A successful push ends the turn without
     another model round, because logging would dirty the tree again.
     """
@@ -3586,7 +3787,8 @@ def print_commands():
     emit("Ask-first is locked: questions and statements are not permission to act.")
     emit("Tool-result character cap stays off until partial IO is verified.")
     emit("Partial reads: read_file_range, read_file_head, read_file_tail, search_in_file.")
-emit("Cross-file: search_files, list_files. Recursion off unless asked. .git not expanded.")
+    emit("Cross-file: search_files, list_files. Recursion off unless asked. .git not expanded.")
+    emit("run_check: python, one workspace script, no flags, no shell. Not under cos/.")
 
 
 def _repl_git(user_input: str) -> None:

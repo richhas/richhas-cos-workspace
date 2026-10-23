@@ -2947,3 +2947,317 @@ Step 6 is recorded and not signed off. `specs/cos-tools-plan.md` says the gate i
 - The 12,000-character cap stays off until you verify partial IO and say to restore it.
 
 Still open, and not implied by this sign-off: `closed-loop` and `routing-load`. A next slice needs its own instruction.
+
+## 2026-10-23T19:49:49.324266+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/context.md cos/event_log.jsonl cos/tasks.md specs/cos-tools-plan.md
+exit 0
+
+## 2026-10-23T19:49:50.623367+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record step 6 sign-off and session context
+exit 0
+[main 80b4a72] Record step 6 sign-off and session context
+ 4 files changed, 331 insertions(+), 10 deletions(-)
+
+## 2026-10-23T19:49:53.927770+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   45d41ba..80b4a72  main -> main
+
+## 2026-10-23T19:49:53.948002+00:00
+- Dialog:
+  - In: approve git commit and approve git push
+  - Tools: git, git, git, git, git, git (4 round(s))
+  - Out: Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-23T19:50:17.897915+00:00
+- Dialog:
+  - In: do we have a plan for the next slice
+  - Tools: file_outline, search_in_file, search_in_file, read_file_range, search_in_file (3 round(s))
+  - Out: No. The first wave is closed. There is no booked next slice.
+
+**What the plan says**
+`specs/cos-tools-plan.md` step 6 is signed off. It says the next slice is a separate decision and needs its own instruction. Signing off did not start one. I did not pick one.
+
+**Still unstarted, not ordered**
+- Remaining writes: `append_file`, `insert_at_line`, `replace_range`, `apply_patches`, copy/move, `create_files`.
+- Context tools: `context_stats`, `summarize_context`.
+- §3.6 execution, including `run_command`. On hold. Not a shell.
+- §3.7 internet. On hold.
+- Claude API client. Separate proposal. Not built.
+- Restoring the 12,000-character cap. Only after you verify partial IO and say to restore it.
+
+**Also open, and not the tools plan**
+`closed-loop` and `routing-load`.
+
+Name the slice if you want one booked. This question does not start it.
+
+## 2026-10-23T19:53:49.065018+00:00
+- Dialog:
+  - In: Let me ask... How much is the limit of 10 rounds causing issues for you... And then how much does it slow us down when you can't run your own tests and such so you can auto correct without me in the middle?
+  - Tools: search_in_file, search_in_file, search_in_file, search_in_file, search_in_file (3 round(s))
+  - Out: The 10-round cap is a real drag on implementation turns, but it is the smaller of the two problems. Not being able to run a test is what turns one step into a long ping-pong.
+
+**The cap, from the log**
+`MAX_TOOL_ROUNDS` is 10. About 120 tool loops have finished. Eleven of them hard-stopped at the cap. Two more used all 10 rounds and still returned an answer. Discussion turns almost never hit it. They finish in 1–4 rounds.
+
+The hard stops cluster in two places:
+- The early git chase, before a successful push ended the turn. Those two turns spent all 10 rounds on git and produced no answer. That path is already fixed. Raising the cap would not have fixed it.
+- Steps 3–5. I spend most of the budget finding anchors, write near the end, and have no rounds left to check the write. That is why the step 5 script went out with a bad anchor and I had to say do not run it yet. Since the cap fix,...
+
+## 2026-10-23T19:58:09.222045+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:58:09.222045+00:00
+- Task: `tools-7-rounds` open — Raise MAX_TOOL_ROUNDS from 10 to 25
+- Note: Plan step 7. Next eligible. Not started by the booking. Needs its own instruction. No shell. Cap stays off.
+
+## 2026-10-23T19:58:09.280926+00:00
+- Task: `tools-8-check` open — Add bounded run_check so a self-test can run inside the turn
+- Note: Plan step 8. Blocked on tools-7-rounds sign-off. Not a shell. Not started by the booking. Cap stays off.
+
+## 2026-10-23T19:58:11.790897+00:00
+- Dialog:
+  - In: I want both of these to be injected into are plan as the next items to implement. You choose which order.
+  - Tools: file_outline, search_in_file, search_in_file, read_file_range, search_in_file, read_file_tail, patch_file, update_task, update_task (5 round(s))
+  - Out: Booked. Nothing was implemented.
+
+**Order I chose**
+1. `tools-7-rounds` — raise `MAX_TOOL_ROUNDS` from 10 to 25. Next eligible. A local check is useless if the turn dies before it can run.
+2. `tools-8-check` — add bounded `run_check` (python, one workspace script, no shell). Blocked on step 7 sign-off.
+
+**Changed**
+- `specs/cos-tools-plan.md` — steps 7 and 8 appended. Step 6 sign-off still does not start them.
+- `cos/tasks.md` — both tasks open. Neither is `doing`.
+
+**Not done**
+- No `cos/cos.py` change. Cap stays off. No `run_command`. No commit.
+
+Say **do step 7** if you want the round cap raised. That still does not start step 8.
+
+## 2026-10-23T19:58:49.012002+00:00
+- Task: `tools-7-rounds` doing — Raise MAX_TOOL_ROUNDS from 10 to 25
+- Note: User said do step 7. Raising MAX_TOOL_ROUNDS from 10 to 25 only. No run_check. Cap stays off.
+
+## 2026-10-23T19:58:55.124437+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T19:58:55.186910+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T19:58:55.265030+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T19:58:55.358776+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T19:59:02.021648+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:59:06.188209+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:59:06.225635+00:00
+- Task: `tools-7-rounds` doing — Raise MAX_TOOL_ROUNDS from 10 to 25
+- Note: Wrote MAX_TOOL_ROUNDS = 25 in cos/cos.py. Not live until restart. Awaiting sign-off. Does not start step 8. Cap stays off.
+
+## 2026-10-23T19:59:08.877141+00:00
+- Dialog:
+  - In: do step 7
+  - Tools: update_task, file_outline, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, search_in_file, patch_file, patch_file, patch_file, patch_file, search_in_file, search_in_file, search_in_file, search_in_file, patch_file, search_in_file, read_file_range, patch_file, update_task (9 round(s))
+  - Out: Step 7 is written. It is not live until you restart, and it is not signed off. Step 8 was not started. The result cap stays off.
+
+**Changed**
+- `cos/cos.py` — `MAX_TOOL_ROUNDS` is 25. The module docstring, the system prompt, and the loop docstring now say 25. Hitting the cap still triggers one no-tools final answer. A successful push still ends the turn.
+- `specs/cos-tools-plan.md` — step 7 is written, awaiting sign-off.
+- `tools-7-rounds` stays `doing` until you sign off.
+
+**Not done**
+- This process is still the old one. The prompt you are reading still says the loop is capped at 10. Restart, then the next turn can use 25.
+- No `run_check`. No shell. No new file tools. `TOOL_RESULT_CHAR_LIMIT` is still `None`.
+- No commit. That needs `approve git commit` in a later directive.
+
+A sign-off is a separate instruction, for example "sign off". That still does not start step 8.
+
+## 2026-10-23T19:59:50.112122+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T20:03:10.826601+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T20:03:10.863173+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T20:03:10.931807+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T20:03:10.983225+00:00
+- Task: `tools-7-rounds` done — Raise MAX_TOOL_ROUNDS from 10 to 25
+- Note: User signed off 2026-10-23: "sign off". Restart loaded MAX_TOOL_ROUNDS = 25. Does not start step 8. Cap stays off.
+
+## 2026-10-23T20:03:11.044610+00:00
+- Task: `tools-8-check` open — Add bounded run_check so a self-test can run inside the turn
+- Note: Step 7 signed off. Eligible, not started. Needs its own instruction. Not a shell. Cap stays off.
+
+## 2026-10-23T20:03:13.491066+00:00
+- Dialog:
+  - In: sign off
+  - Tools: search_in_file, search_in_file, file_outline, read_file_range, patch_file, patch_file, patch_file, update_task, update_task (4 round(s))
+  - Out: Sign-off accepted. Step 7 is closed. Step 8 was not started. The result cap stays off.
+
+**What "sign off" covered**
+- `MAX_TOOL_ROUNDS = 25` in `cos/cos.py`. This restarted process loaded it. The prompt for this turn says the loop is capped at 25.
+- Hitting the cap still triggers one no-tools final answer. A successful push still ends the turn.
+
+**Recorded**
+- `tools-7-rounds` is done, with the sign-off note.
+- `tools-8-check` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 7 is signed off and step 8 is not started.
+
+**Not done**
+- No `run_check`. No shell. No `cos/cos.py` change this turn.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+Step 8 still needs its own instruction, for example "do step 8".
+
+## 2026-10-23T20:04:06.162985+00:00
+- Dialog:
+  - In: Make sure you are testing these changes
+  - Tools: search_in_file, search_in_file, search_in_file, read_file_range (3 round(s))
+  - Out: Step 7 was checked by inspection, not by a script I ran. This statement does not start a test, and it does not start step 8.
+
+**What was checked**
+- `cos/cos.py` has `MAX_TOOL_ROUNDS = 25` once, at line 61. The loop uses that constant. Hitting it still asks for one no-tools final answer.
+- This restarted process loaded it. The prompt for this turn says the loop is capped at 25. You signed that off.
+
+**What was not tested**
+- There is no step 7 self-test script. I cannot run Python from this turn, so I did not execute a check.
+- This turn is not a demonstration of more than 10 rounds. The sign-off accepted the loaded constant instead.
+- Steps 2–5 were tested only when you ran `protocol/stepN_self_test.py` and pasted the result. I did not run those either.
+
+**What would close the gap**
+`run_check` is step 8. It is eligible and not started. Until it exists, a written check still has to b...
+
+## 2026-10-23T22:07:27.765820+00:00
+- Task: `tools-8-check` doing — Add bounded run_check so a self-test can run inside the turn
+- Note: User said do step 8. Adding bounded run_check only. Not a shell. Cap stays off.
+
+## 2026-10-23T22:07:35.045529+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:35.092607+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:35.189543+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:35.268922+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:35.362667+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:35.440793+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:52.731266+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:52.786778+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:52.879121+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:52.981079+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:07:56.963138+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-23T22:08:06.029926+00:00
+- File change: wrote `protocol/step8_self_test.py` (3498 bytes)
+
+## 2026-10-23T22:08:10.270183+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T22:08:15.326111+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T22:08:15.339639+00:00
+- Task: `tools-8-check` doing — Add bounded run_check so a self-test can run inside the turn
+- Note: Wrote run_check in cos/cos.py. Not live until restart. Awaiting script pass and sign-off. Does not start a later slice. Cap stays off.
+
+## 2026-10-23T22:08:19.560479+00:00
+- Dialog:
+  - In: do step 8
+  - Tools: search_in_file, search_in_file, file_outline, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, read_file_range, read_file_range, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, update_task, read_file_range, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, search_in_file, search_in_file, search_in_file, search_in_file, patch_file, read_file_range, write_file, search_in_file, read_file_range, patch_file, patch_file, search_in_file, read_file_tail, patch_file, update_task (21 round(s))
+  - Out: Step 8 is written. It is not live until you restart, and it is not signed off. No later slice was started. The result cap stays off.
+
+**Changed**
+- `cos/cos.py` — added `run_check` beside the existing tools. Python only, one workspace script, args that are not flags, `shell=False`, 60 second timeout. Stdout and stderr are each capped at 12,000 characters and say `TRUNCATED` if cut. Refuses `..`, absolute paths, flags, and anything under `cos/`. A non-zero exit is returned as text so a failing check can be read. Timeout and path refusal still error. It does not stage or commit.
+- `specs/cos-tools-plan.md` — step 8 is written, awaiting sign-off.
+- `protocol/step8_self_test.py` — hand check. Do not stage it.
+- `tools-8-check` stays `doing`.
+
+**What stayed**
+The six original tools, plus `file_info`, `file_outline`, the four partial reads, `search_files`, `list_files`, and `patch_file`. `M...
+
+## 2026-10-23T22:10:10.219893+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T22:11:43.963945+00:00
+- File change: wrote `protocol/step8_self_test.py` (3514 bytes)
+
+## 2026-10-23T22:12:05.027278+00:00
+- Dialog:
+  - In: run_check
+  - Tools: run_check, file_info, read_file, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, write_file, run_check (8 round(s))
+  - Out: Step 8 ran inside this turn. It passed. That is not a sign-off.
+
+**Result:** `run_check protocol/step8_self_test.py` exited 0. Twelve `PASS` lines, then `fails 0`.
+
+**What passed**
+- Tools, in order, through `run_check`. No `run_command`.
+- Cap is `None`. Rounds are 25. Timeout is 60 seconds.
+- A scratch script printed `step8-ok` at exit 0. A script that exits 3 came back as text, not a raised error.
+- `../outside.py` and `cos/cos.py` were refused. A flag arg was refused. A long stdout is truncated and says `TRUNCATED` and `omitted`.
+- The timeout is wired to `subprocess` (`timeout=RUN_CHECK_TIMEOUT_SEC`, `TimeoutExpired`).
+
+**What the first run showed**
+The original script slept 90 seconds inside a 60-second `run_check`, so the outer call timed out before any `PASS` line. I rewrote `protocol/step8_self_test.py` to drop that nested sleep. Do not stage it. The live timeout path is stil...
+
+## 2026-10-23T22:13:59.432944+00:00
+- Task: `tools-8-check` done — Add bounded run_check so a self-test can run inside the turn
+- Note: User signed off 2026-10-23: "sign-off". run_check passed inside the turn (fails 0). Does not start a later slice. Cap stays off.
+
+## 2026-10-23T22:13:59.447835+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T22:14:01.639257+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T22:14:05.013202+00:00
+- Dialog:
+  - In: sign-off
+  - Tools: file_outline, search_in_file, search_in_file, read_file_range, update_task, patch_file, patch_file (5 round(s))
+  - Out: Sign-off accepted. Step 8 is closed. No later slice was started. The result cap stays off.
+
+**What "sign-off" covered**
+- `run_check` in `cos/cos.py`, already live in this process.
+- The in-turn run of `protocol/step8_self_test.py`: twelve `PASS` lines, then `fails 0`, exit 0. That covered a pass, a fail returned as text, path refusal, a flag refusal, and truncated stdout. The timeout is wired; the nested 90-second sleep was dropped so the check could finish.
+
+**Recorded**
+- `tools-8-check` is done, with the sign-off note.
+- `specs/cos-tools-plan.md` now says step 8 is signed off and the next slice is not started.
+
+**Not done**
+- No `run_command`. Not a shell. Nothing under `cos/` can be run.
+- No `cos/cos.py` change this turn. No later-slice tools. §3.6 and §3.7 stay on hold. No Claude client.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character t...

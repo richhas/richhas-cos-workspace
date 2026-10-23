@@ -200,7 +200,90 @@ Still not started, and not implied by recording this gate:
 
 ## What the step 6 sign-off does not do
 
-- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
+- Does not start a later slice by itself. Steps 7 and 8 were booked later by "I want both of these to be injected into are plan as the next items to implement. You choose which order." That booking does not start them.
 - Does not edit `cos/cos.py`.
 - Does not restore the 12,000-character tool-result cap. Cap stays `None` until a later directive says otherwise, and only after the user verifies partial IO.
 - Does not commit or push. That still needs `approve git commit` or `approve git push` in a later directive.
+
+## Step 7 — Raise the tool-round cap
+
+**Task id:** `tools-7-rounds`
+**Status:** signed off 2026-10-23 by "sign off". Restart loaded `MAX_TOOL_ROUNDS = 25`. Sign-off does not start step 8.
+**Blocked on:** nothing.
+
+Raise `MAX_TOOL_ROUNDS` in `cos/cos.py` from 10 to 25. That is the only code change in this step.
+
+Why this is first: the 10-round cap is what cuts an implementation turn before the write can be checked. A bounded local check is useless if the turn dies before it can run. The early git chase is already fixed (a successful push ends the turn). Do not reopen that. Do not raise the cap to chase a clean tree.
+
+**No loss**
+- The six live tools stay, same names and gates. `file_info`, `file_outline`, the four partial reads, `search_files`, `list_files`, and `patch_file` stay.
+- Ask-first, git approval phrases, one commit and one push per turn, and push-ends-the-turn stay.
+- The 12,000-character tool-result cap stays off. This step does not restore it.
+- Hitting the new cap still triggers one no-tools final answer.
+- No shell. No `run_command`. No Claude client. No new file tools.
+
+**Done when:** the constant is 25, a restart has loaded it, you have seen a turn that can use more than 10 rounds or a check that the constant is 25, and you sign off. Sign-off does not start step 8.
+
+## Step 8 — Bounded local check
+
+**Task id:** `tools-8-check`
+**Status:** signed off 2026-10-23 by "sign-off". `run_check` passed inside the turn (`fails 0`). Sign-off does not start a later slice.
+**Blocked on:** nothing.
+
+Add one bounded tool, `run_check`, so a written self-test can be run and corrected inside the same turn. This is not a shell and not `run_command`.
+
+**Scope**
+- One command shape: `python` plus one workspace-relative script path, optional args that are not flags.
+- The script path must stay inside the workspace. No `..`. No absolute path.
+- No shell. `shell=False`. No `cmd`, no PowerShell, no `git`, no network.
+- Timeout 60 seconds. Capture stdout and stderr. Cap each at 12,000 characters and say if truncated.
+- Refuse if the script path is `cos/cos.py` or anything under `cos/`. Checks live under `protocol/` or another non-`cos` path you name in the instruction.
+- Do not stage the check script. Do not commit from the tool.
+
+**No loss**
+- Same as step 7. Existing tools and gates stay. Cap stays off.
+- A failed check does not write `cos/cos.py` by itself. A later patch in that same turn still needs the current directive to have authorized the step.
+
+**Done when:** `run_check` is registered beside the existing tools, a hand check shows a pass, a fail, a path escape, and a timeout, you sign off, and no general shell exists. Sign-off does not start a later slice.
+
+## What booking steps 7 and 8 does not do
+
+- Does not edit `cos/cos.py`.
+- Does not raise `MAX_TOOL_ROUNDS`.
+- Does not add `run_check` or `run_command`.
+- Does not start step 7. That needs its own instruction, for example "do step 7".
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push.
+- Does not start remaining writes, context tools, §3.6, §3.7, or the Claude client.
+
+## What the step 7 write does not do
+
+- Written 2026-10-23 by "do step 7". `MAX_TOOL_ROUNDS` is 25 in `cos/cos.py`. Not live until restart. Awaiting sign-off.
+- Does not add `run_check`. Step 8 stays blocked until that sign-off.
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push.
+
+## What the step 7 sign-off does not do
+
+- Signed off 2026-10-23 by "sign off". The restarted process has `MAX_TOOL_ROUNDS = 25`.
+- Does not start step 8. `run_check` is not added. That needs its own instruction, for example "do step 8".
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push.
+- Does not start remaining writes, context tools, §3.6, §3.7, or the Claude client.
+
+## What the step 8 write does not do
+
+- Written 2026-10-23 by "do step 8". `run_check` is in `cos/cos.py`. Not live until restart. Awaiting sign-off.
+- Does not add `run_command`. Not a shell. Does not run anything under `cos/`.
+- Does not restore the 12,000-character tool-result cap. `run_check` stdout and stderr are capped at 12,000 each. That is not the tool-result cap.
+- Does not commit or push. Do not stage `protocol/step8_self_test.py`.
+- Does not start a later slice. Sign-off is a separate instruction.
+
+## What the step 8 sign-off does not do
+
+- Signed off 2026-10-23 by "sign-off". `run_check` passed inside the turn (`fails 0`).
+- Does not add `run_command`. Not a shell. Does not run anything under `cos/`.
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push. Do not stage `protocol/step8_self_test.py`.
+- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
+- Does not start `closed-loop` or `routing-load`.
