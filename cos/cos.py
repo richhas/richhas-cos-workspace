@@ -9,7 +9,8 @@ from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 10 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
 file_info, file_outline, read_file_range, read_file_head, read_file_tail,
-search_in_file, search_files, list_files. No shell. No patch.
+search_in_file, search_files, list_files, patch_file. No shell.
+patch_file is one unique literal match and a short diff. It does not replace write_file.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
@@ -154,8 +155,9 @@ AGENT_SYSTEM_EXTRA = (
     "do not call write_file, update_task, handoff, or git add/commit/push. "
     "You may call list_dir, read_file, file_info, file_outline, "
     "read_file_range, read_file_head, read_file_tail, search_in_file, "
-    "search_files, and list_files "
+    "search_files, list_files, and patch_file "
     "only when a read is required to answer. "
+    "patch_file is a write. Do not call it while discussing. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
@@ -163,9 +165,14 @@ AGENT_SYSTEM_EXTRA = (
     "read_file_range(path, start_line, end_line), read_file_head(path, n), "
     "read_file_tail(path, n), search_in_file(path, pattern, context_lines), "
     "search_files(pattern, path, context_lines), "
-    "list_files(path, glob, recursive). "
-    "file_info, file_outline, the partial reads, search_files, and list_files are additive. "
+    "list_files(path, glob, recursive), "
+    "patch_file(path, search, replace, replace_all). "
+    "file_info, file_outline, the partial reads, search_files, list_files, and patch_file are additive. "
     "They do not replace read_file or write_file. "
+    "patch_file is one file, one literal search. "
+    "If replace_all is false and the search is not unique, it errors and does not write. "
+    "A missing search does not write. It does not update cos/tasks.md. "
+    "It is not apply_patches, not replace_range, and not a multi-file write. "
     "Prefer file_info, file_outline, or a partial read before a full read of a large file. "
     "read_file_range is inclusive and 1-based. An out-of-range request errors; it does not return the whole file. "
     "search_in_file searches one file only. It is not search_files. "
@@ -178,7 +185,7 @@ AGENT_SYSTEM_EXTRA = (
     "It does not follow symlinks, does not expand .git, and is depth- and entry-capped. "
     "Use read_file and write_file to inspect and change files, and handoff to emit a Claude hand-off. "
     "Open work is in cos/tasks.md (also shown below when present). "
-    "Use update_task to add or change a task; do not rewrite cos/tasks.md with write_file. "
+    "Use update_task to add or change a task; do not rewrite cos/tasks.md with write_file or patch_file. "
     "Statuses: open, doing, blocked, done. At most one task may be doing. "
     "Mark a task doing before you start it and done only after the file change is written. "
     "Do that only when the current directive explicitly told you to do the work. "
@@ -608,6 +615,42 @@ TOOLS = [
                     },
                 },
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "patch_file",
+            "description": (
+                "Literal search/replace in one workspace text file. "
+                "If replace_all is false and the search occurs any number other than 1, "
+                "return an error and do not write. A missing search does not write. "
+                "Returns a short diff summary. Does not replace write_file. "
+                "Does not update cos/tasks.md. Not apply_patches. Not a multi-file write. "
+                "Keeps the file newline style. Does not turn CRLF into CR CR LF."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path. Not cos/tasks.md.",
+                    },
+                    "search": {
+                        "type": "string",
+                        "description": "Literal text to find. Not a regex. Must be non-empty.",
+                    },
+                    "replace": {
+                        "type": "string",
+                        "description": "Literal replacement. May be empty.",
+                    },
+                    "replace_all": {
+                        "type": "boolean",
+                        "description": "Replace every occurrence. Default false. False requires exactly one match.",
+                    },
+                },
+                "required": ["path", "search", "replace"],
             },
         },
     },
@@ -1990,6 +2033,113 @@ def list_files(rel_path: str = ".", glob: str = "*", recursive=False) -> str:
     return text
 
 
+def _short_diff(before: str, after: str, limit: int = 40) -> str:
+    """Unified diff, capped. Does not write."""
+    import difflib
+    lines = list(difflib.unified_diff(
+        before.splitlines(),
+        after.splitlines(),
+        fromfile="before",
+        tofile="after",
+        lineterm="",
+        n=2,
+    ))
+    if len(lines) > limit:
+        omitted = len(lines) - limit
+        lines = lines[:limit]
+        lines.append(f"... {omitted} diff lines omitted")
+    return "\n".join(lines)
+
+
+def _newline_style(data: bytes) -> str:
+    """Return the file's newline. CRLF wins if any CRLF is present."""
+    if b"\r\n" in data:
+        return "\r\n"
+    if b"\r" in data:
+        return "\r"
+    return "\n"
+
+
+def _to_lf(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _from_lf(text: str, newline: str) -> str:
+    """Apply newline style to LF text. Does not double an existing CR."""
+    if newline == "\n":
+        return text
+    return text.replace("\n", newline)
+
+
+def patch_file(rel_path: str, search: str, replace: str, replace_all=False) -> str:
+    """Literal search/replace in one file. Unique unless replace_all.
+
+    Does not replace write_file. Does not update cos/tasks.md.
+    A missing or non-unique search does not write.
+    Search and replace are matched as LF text. The file is written back
+    in its original newline style. A CRLF file stays CRLF, not CR CR LF.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    if not isinstance(search, str) or search == "":
+        raise ValueError("search must be a non-empty string")
+    if not isinstance(replace, str):
+        raise ValueError("replace must be a string")
+    replace_all = _parse_bool(replace_all, "replace_all", False)
+    raw = rel_path.strip().replace("\\", "/").rstrip("/")
+    norm = raw.lstrip("./") or raw
+    if norm in ("cos/tasks.md", "tasks.md"):
+        raise ValueError("use update_task for cos/tasks.md, not patch_file")
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    original = target.read_bytes()
+    newline = _newline_style(original)
+    text = _to_lf(original.decode("utf-8"))
+    search_lf = _to_lf(search)
+    replace_lf = _to_lf(replace)
+    count = text.count(search_lf)
+    if count == 0:
+        raise ValueError("search not found; file not written")
+    if not replace_all and count != 1:
+        raise ValueError(
+            f"search is not unique ({count} matches); file not written"
+        )
+    if replace_all:
+        updated = text.replace(search_lf, replace_lf)
+        replaced = count
+    else:
+        updated = text.replace(search_lf, replace_lf, 1)
+        replaced = 1
+    if updated == text:
+        raise ValueError("replacement did not change the file; file not written")
+    payload = _from_lf(updated, newline).encode("utf-8")
+    if b"\r\r\n" in payload:
+        raise ValueError("refusing to write doubled CR; file not written")
+    target.write_bytes(payload)
+    diff = _short_diff(text, updated)
+    shown = raw.lstrip("./") or raw
+    summary = "\n".join([
+        f"path: {shown}",
+        f"replaced: {replaced}",
+        f"size_bytes: {len(payload)}",
+        f"newline: {newline!r}",
+        "diff:",
+        diff,
+    ])
+    log_event(
+        "file_patch",
+        f"Patched {raw}",
+        detail={"path": raw, "replaced": replaced, "bytes": len(payload)},
+    )
+    append_context(f"- File change: patched `{raw}` ({replaced} replacement(s))")
+    return summary
+
+
 def list_dir(rel_path: str = ".") -> str:
     """List a workspace directory. Bounded, no symlink follow, no path escape.
 
@@ -3084,6 +3234,22 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
             log_event(
                 "tool_exec",
                 f"list_files {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "patch_file":
+            rel = str(arguments.get("path") or "").strip()
+            search = arguments.get("search")
+            replace = arguments.get("replace")
+            if not isinstance(search, str):
+                raise ValueError("search is required")
+            if not isinstance(replace, str):
+                raise ValueError("replace is required")
+            text = patch_file(rel, search, replace, arguments.get("replace_all", False))
+            emit(f"[tool] patch_file {rel}")
+            log_event(
+                "tool_exec",
+                f"patch_file {rel}",
                 detail={"tool": name, "path": rel, "round": round_i},
             )
             return text

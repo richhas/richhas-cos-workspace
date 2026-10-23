@@ -2385,3 +2385,396 @@ Scratch and one-shot scripts, including `protocol/test.txt`, `protocol/overflow_
 One directive that contains both exact phrases:
 
 `approve git commit and...
+
+## 2026-10-23T19:21:17.024165+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/cos.py cos/tasks.md specs/cos-tools-plan.md cos/context.md cos/event_log.jsonl
+exit 0
+
+## 2026-10-23T19:21:18.155319+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record search_files, list_files, step 4 sign-off, and session context
+exit 0
+[main 2f2e063] Record search_files, list_files, step 4 sign-off, and session context
+ 5 files changed, 1323 insertions(+), 27 deletions(-)
+
+## 2026-10-23T19:21:22.036180+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   dba1091..2f2e063  main -> main
+
+## 2026-10-23T19:21:22.046490+00:00
+- Dialog:
+  - In: approve git commit and approve git push
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Commit landed. Pushing once to origin/main.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-23T19:21:41.234429+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:22:05.653228+00:00
+- Dialog:
+  - In: next?
+  - Tools: (none) (1 round(s))
+  - Out: **Next is step 5.** It is not started. This question does not start it.
+
+`tools-5-patch` is eligible: add `patch_file` only — one unique literal match, a short diff, no multi-file writes. The cap stays off. The existing tools stay. Step 6 stays blocked until you sign off step 5.
+
+If you say **do step 5**, I would add that tool beside the current set, leave a hand check for you to run, and stop. Sign-off and any commit would be later instructions.
+
+Also still open, not next: `closed-loop`, `routing-load`. After the last push, `cos/context.md` and `cos/event_log.jsonl` are dirty by design. Leave them.
+
+## 2026-10-23T19:22:36.725434+00:00
+- Task: `tools-5-patch` doing — Add patch_file with unique literal match and a short diff
+- Note: User said do step 5. Adding patch_file only. No multi-file writes. Cap stays off.
+
+## 2026-10-23T19:23:17.914572+00:00
+- File change: wrote `protocol/_step5_insert.py` (12856 bytes)
+
+## 2026-10-23T19:23:17.924763+00:00
+- File change: wrote `protocol/step5_self_test.py` (3144 bytes)
+
+## 2026-10-23T19:23:41.851227+00:00
+- Dialog:
+  - In: do step 5
+  - Tools: update_task, file_info, file_info, file_info, search_in_file, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, write_file, write_file, read_file_range, search_in_file, search_in_file (10 round(s))
+  - Out: Step 5 is not in `cos/cos.py`. Do not run the insert script yet. It will refuse, and the anchors are wrong.
+
+**What is true**
+- `cos/cos.py` is still the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. No `patch_file`. Cap is still `None`.
+- `tools-5-patch` is `doing`. Not signed off. Step 6 was not started.
+
+**What I wrote, and why it is not ready**
+- `protocol/_step5_insert.py` and `protocol/step5_self_test.py`. Do not stage them.
+- The schema anchor looks for `Default ''` and `Default '*'`. The live file has `Default '.'` and `Default '*'`. That match will be 0.
+- I did not get to correct that before the round cap. A run now stops before any write, which is the right failure, but it does not apply the tool.
+
+**Not done**
+- No `patch_file`. No `apply_patches`. No cap restore. No commit.
+
+**Next**
+Say **fix the step 5 insert script**. I will correct the anchor...
+
+## 2026-10-23T19:25:21.524071+00:00
+- File change: wrote `protocol/_step5_insert.py` (13720 bytes)
+
+## 2026-10-23T19:26:01.573364+00:00
+- Dialog:
+  - In: fix the step 5 insert script
+  - Tools: file_info, file_info, file_outline, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, search_in_file, write_file, search_in_file, search_in_file, search_in_file, file_info, file_info, read_file_range, search_in_file (10 round(s))
+  - Out: Fixed the two known bad anchors in `protocol/_step5_insert.py`. Do not run it yet. `cos/cos.py` was not changed.
+
+**What was wrong**
+- The schema anchor looked for `Default '' .`. The live `list_files` schema says `Default '.' .`.
+- The function anchor was `return text` plus `def list_dir`. That `return text` is not unique. It now uses the `Listed files {raw} glob={glob}` block, which occurs once.
+
+**Still on disk**
+- `cos/cos.py` is still the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. No `patch_file`. Cap is still `None`.
+- The script is 14,074 bytes. Do not stage it.
+
+**Do not run it.** `patch_file` still decodes a CRLF file and then replaces every `\n` with `\r\n`. On this workspace that writes `\r\r\n`. The self-test would fail, and a real patch could corrupt the file.
+
+Say **fix the step 5 newline handling** and I will correct that before you run anyt...
+
+## 2026-10-23T19:27:18.642654+00:00
+- File change: wrote `protocol/_step5_insert.py` (15197 bytes)
+
+## 2026-10-23T19:27:18.642654+00:00
+- File change: wrote `protocol/step5_self_test.py` (3541 bytes)
+
+## 2026-10-23T19:27:33.114147+00:00
+- File change: wrote `protocol/_step5_nl.py` (3151 bytes)
+
+## 2026-10-23T19:27:42.580746+00:00
+- File change: wrote `protocol/_step5_nl.py` (3387 bytes)
+
+## 2026-10-23T19:29:03.831244+00:00
+- Dialog:
+  - In: fix the step 5 newline handling
+  - Tools: file_info, file_info, search_in_file, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, read_file, read_file, search_in_file, search_in_file, write_file, write_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, write_file, write_file (10 round(s))
+  - Out: The newline bug is fixed in the insert script. `cos/cos.py` was not changed. Do not run `protocol/_step5_nl.py`.
+
+**What was wrong.** The generated `patch_file` decoded a CRLF file and then replaced every LF with CRLF. On this workspace that writes CR CR LF. The insert script’s own write path was already safe: it normalizes to LF first, then restores the original newline style.
+
+**Change.** `protocol/_step5_insert.py` now generates that same pattern inside `patch_file`. Search and replace are matched as LF text. The file is written back in its original style. A doubled-CR payload is refused and not written. The script still refuses unless `cos/cos.py` is the signed-off step 4 copy (134,062 bytes, sha256 `d78cb111…`), the cap is still `None`, and compile succeeds.
+
+`protocol/step5_self_test.py` now checks a CRLF scratch file and rejects CR CR LF. Do not stage either script.
+
+**Not done...
+
+## 2026-10-23T19:30:42.944037+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:31:09.355098+00:00
+- Dialog:
+  - In: REFUSED: prompt reads: expected 1 match, found 0
+  - Tools: search_in_file, file_info, file_info, search_in_file, search_in_file, read_file_range (3 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**What matched.** The live file is still the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. The script got past that gate, then stopped on `prompt reads`.
+
+**Why.** `PROMPT_READS_OLD` searches for this exact source block:
+
+```
+"search_files, and list_files "\n
+"only when a read is required to answer. "\n
+```
+
+The live file splits that sentence one line earlier. Lines 155–158 are:
+
+```
+"You may call list_dir, read_file, file_info, file_outline, "
+"read_file_range, read_file_head, read_file_tail, search_in_file, "
+"search_files, and list_files "
+"only when a read is required to answer. "
+```
+
+The words are there. The two-line quoted block the script looks for is not, so the match count is 0. That is the right failure. It stopped before any write.
+
+**Not done.** No `patch_file`. Cap is still `None`. `tools-5...
+
+## 2026-10-23T19:32:32.596267+00:00
+- File change: wrote `protocol/_step5_insert.py` (15547 bytes)
+
+## 2026-10-23T19:32:41.514615+00:00
+- Dialog:
+  - In: fix the step 5 prompt anchor
+  - Tools: search_in_file, search_in_file, file_info, file_info, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, search_in_file, read_file, write_file, search_in_file, search_in_file, file_info, file_info (8 round(s))
+  - Out: Fixed the prompt-reads anchor in `protocol/_step5_insert.py`. `cos/cos.py` was not changed.
+
+**Cause.** The refusal was correct. `PROMPT_READS_OLD` looked for a two-line block that starts at `"search_files, and list_files "`. The live source splits that sentence one line earlier. Lines 156–158 are:
+
+```
+"read_file_range, read_file_head, read_file_tail, search_in_file, "
+"search_files, and list_files "
+"only when a read is required to answer. "
+```
+
+The words were there. That two-line block was not, so the match count was 0.
+
+**Change.** The anchor is now those three quoted source lines, including the quotes and the line breaks. That phrase occurs once in `cos/cos.py`. The other anchors were left alone. Same gates: size, line count, sha256 `d78cb111…`, one match, compile, restore on failure. No `apply_patches`. Cap stays `None`. Do not stage the script.
+
+**Still true.** `cos/cos.py` is...
+
+## 2026-10-23T19:34:09.484838+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:34:26.246048+00:00
+- Dialog:
+  - In: see testresults
+  - Tools: file_info, list_files, read_file, read_file_range, file_info, file_info (4 round(s))
+  - Out: The insert script did not run. `cos/cos.py` was not changed.
+
+**Result:** `cos/TestResults.txt` (205 bytes, 4 lines, 19:34:03Z) is a Python syntax error, not a test pass.
+
+```
+File "protocol\_step5_insert.py", line 152
+    "                    },\n'
+SyntaxError: unterminated string literal
+```
+
+**Cause.** The prompt-anchor fix mixed quote styles. Line 152 opens with `"` and closes with `'`. The same mismatch is on lines 156 and 160. Python dies before any file check, so this is not the old `prompt reads` refusal.
+
+**Still true.** `cos/cos.py` is the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. No `patch_file`. Cap is still `None`. `tools-5-patch` stays `doing`. Not signed off. Step 6 was not started.
+
+**Not done.** I did not edit the script. This directive was a read.
+
+Say **fix the step 5 quote mismatch** and I will correct those lines only. Do not run the ...
+
+## 2026-10-23T19:35:23.381915+00:00
+- File change: wrote `protocol/_step5_insert.py` (15697 bytes)
+
+## 2026-10-23T19:35:30.728390+00:00
+- Dialog:
+  - In: fix the step 5 quote mismatch
+  - Tools: read_file_range, file_info, file_info, search_in_file, search_in_file, read_file_range, search_in_file, read_file, write_file, read_file_range, search_in_file, file_info, file_info (6 round(s))
+  - Out: Fixed the quote mismatch in `protocol/_step5_insert.py`. `cos/cos.py` was not changed.
+
+**Cause.** Lines 152, 156, and 160 opened with `"` and closed with `'`. Python died with `SyntaxError: unterminated string literal` before any file check. That is why `cos/TestResults.txt` was a syntax error, not a `prompt reads` refusal.
+
+**Change.** Those three closers are now single-quoted, matching the lines around them: `'                    },\n'`. The generated schema text is the same. Do not stage the script.
+
+**Still true.** `cos/cos.py` is the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. No `patch_file`. Cap is still `None`. `tools-5-patch` stays `doing`. Not signed off. Step 6 was not started.
+
+**Run this from the workspace root, then restart.**
+```
+python protocol/_step5_insert.py
+```
+Pass is one line starting with `wrote`. A `REFUSED` line means it stopped be...
+
+## 2026-10-23T19:36:09.881256+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:36:27.123394+00:00
+- Dialog:
+  - In: REFUSED: prompt reads: expected 1 match, found 0
+  - Tools: search_in_file, search_in_file, search_in_file, file_info, file_info, read_file_range, read_file_range, search_in_file (3 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**What matched.** The live file is still the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256 `d78cb111…`. The script got past that gate, then stopped on `prompt reads`.
+
+**Why.** `PROMPT_READS_OLD` searches for three quoted source lines that start at column 0:
+
+```
+"read_file_range, read_file_head, read_file_tail, search_in_file, "\n
+"search_files, and list_files "\n
+"only when a read is required to answer. "\n
+```
+
+The live source has those same words, but each line is indented four spaces. Lines 156–158 of `cos/cos.py` are:
+
+```
+    "read_file_range, read_file_head, read_file_tail, search_in_file, "
+    "search_files, and list_files "
+    "only when a read is required to answer. "
+```
+
+The words are there. The unindented block is not, so the match count is 0. That is the right failure. It stopped before any write. Th...
+
+## 2026-10-23T19:37:32.356910+00:00
+- File change: wrote `protocol/_step5_insert.py` (15783 bytes)
+
+## 2026-10-23T19:37:36.692135+00:00
+- Dialog:
+  - In: fix the step 5 prompt indent
+  - Tools: search_in_file, read_file_range, file_info, file_info, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file, write_file, read_file_range, file_info, file_info, search_in_file (7 round(s))
+  - Out: Fixed the prompt indent in `protocol/_step5_insert.py`. `cos/cos.py` was not changed.
+
+**Cause.** The refusal was correct. `PROMPT_READS_OLD` searched for quoted lines at column 0. The live source indents those lines four spaces. Lines 156–158 of `cos/cos.py` are:
+
+```
+    "read_file_range, read_file_head, read_file_tail, search_in_file, "
+    "search_files, and list_files "
+    "only when a read is required to answer. "
+```
+
+The words were there. The unindented block was not, so the match count was 0.
+
+**Change.** All four prompt anchors now include that four-space indent, on both the old and new strings. The other anchors were left alone. Same gates: size, line count, sha256 `d78cb111…`, one match, compile, restore on failure. No `apply_patches`. Cap stays `None`. Do not stage the script.
+
+**Still true.** `cos/cos.py` is the signed-off step 4 copy: 134,062 bytes, 3,618 lines, sha256...
+
+## 2026-10-23T19:37:59.709114+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:38:17.675598+00:00
+- Dialog:
+  - In: wrote C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace\cos\cos.py (140826 bytes, '\r\n'). cap stays None. do not stage this script
+  - Tools: file_info, file_info, git, search_in_file, search_in_file, search_in_file, search_in_file (3 round(s))
+  - Out: The insert landed. This restarted process already has `patch_file`. The script was not staged.
+
+**Confirmed**
+- `cos/cos.py` is 140,826 bytes, 3,784 lines, mtime 19:37:50Z, sha256 `d74203ae…`. That matches the script line. The previous signed-off copy was 134,062 bytes.
+- `patch_file` is defined, registered, and dispatched. One file, one literal search. A non-unique search does not write. It cannot edit `cos/tasks.md`. It is not `apply_patches`.
+- `TOOL_RESULT_CHAR_LIMIT` is still `None`. The 12,000 cap was not restored.
+- `protocol/_step5_insert.py` is untracked. `cos/cos.py` is modified and not staged. Nothing was added, committed, or pushed.
+
+**Not done**
+- Step 5 is not signed off. `tools-5-patch` stays `doing`. Step 6 was not started.
+- I cannot run the self-test from this turn.
+
+**If you want the check,** from the workspace root:
+
+```
+python protocol/step5_self_test.py
+```
+
+Pass...
+
+## 2026-10-23T19:38:46.365940+00:00
+- File change: patched `protocol/_step5_scratch.txt` (1 replacement(s))
+
+## 2026-10-23T19:38:46.397190+00:00
+- File change: patched `protocol/_step5_scratch.txt` (1 replacement(s))
+
+## 2026-10-23T19:38:46.444062+00:00
+- File change: wrote `protocol/_step5_scratch.txt` (18 bytes)
+
+## 2026-10-23T19:39:16.359602+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:39:31.426872+00:00
+- Dialog:
+  - In: see testreults
+  - Tools: list_files, file_info, read_file (3 round(s))
+  - Out: The step 5 script passed. That is a pass, not a sign-off. I did not change any files.
+
+**Result:** `cos/TestResults.txt` (829 bytes, 19 lines, 19:39:10Z) ends with `fails 0`. Every named check says `PASS`.
+
+**What passed**
+- Tools, in order, through `patch_file`.
+- Cap is `None`. It was not turned back on.
+- `apply_patches` is not registered. `write_file` still works.
+- A non-unique search does not write. A missing search does not write.
+- A unique match writes and returns a short diff. LF stays LF. CRLF stays CRLF. No CR CR LF.
+- `patch_file` cannot edit `cos/tasks.md`. A path outside the workspace errors.
+
+**Not done**
+- `tools-5-patch` stays `doing` until you sign off. Step 6 stays blocked.
+- No commit. That needs `approve git commit` in a later directive.
+
+A sign-off is a separate instruction, for example "sign off". That still does not start step 6.
+
+## 2026-10-23T19:39:54.371038+00:00
+- Task: `tools-5-patch` done — Add patch_file with unique literal match and a short diff
+- Note: User signed off 2026-10-23: "sign-off". Script passed (fails 0). Cap stays off. Does not start step 6.
+
+## 2026-10-23T19:39:54.401552+00:00
+- Task: `tools-6-gate` open — Record first-wave sign-off gate; do not start later slices
+- Note: Step 5 signed off. Eligible, not started. Needs its own instruction. No new tools. Cap stays off. 3.6 and 3.7 stay on hold.
+
+## 2026-10-23T19:39:54.447669+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:39:59.715384+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:39:59.748051+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:39:59.810567+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:39:59.873065+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:04.003290+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:04.032347+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:04.094862+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:04.157355+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:07.410273+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T19:40:10.147592+00:00
+- Dialog:
+  - In: sign-off
+  - Tools: file_info, file_info, file_outline, search_in_file, read_file_range, read_file_range, read_file, update_task, update_task, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file, patch_file (7 round(s))
+  - Out: Sign-off accepted. Step 5 is closed. Step 6 was not started. The cap stays off.
+
+**What "sign-off" covered**
+- `cos/TestResults.txt` (19:39:10Z): seventeen `PASS` lines and `fails 0` from `protocol/step5_self_test.py`.
+- `patch_file`: one file, one unique literal match, short diff. A non-unique or missing search does not write. CRLF stays CRLF. No CR CR LF. It cannot edit `cos/tasks.md`.
+- Cap is `None`. `apply_patches` is not registered. `write_file` still works.
+
+**Recorded**
+- `tools-5-patch` is done, with the sign-off note.
+- `tools-6-gate` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 5 is signed off and step 6 is not started.
+
+**Not done**
+- No `cos/cos.py` change. No later-slice tools.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say t...
