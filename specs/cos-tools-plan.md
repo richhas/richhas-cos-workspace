@@ -287,3 +287,11 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 - Does not commit or push. Do not stage `protocol/step8_self_test.py`.
 - Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
 - Does not start `closed-loop` or `routing-load`.
+
+## What the tools-split sign-off does not do
+
+- Signed off 2026-10-23 by "sign off". Tool bodies are in `cos/tools_impl.py`. The dispatcher reloads that file on each call. Disk test passed (`fails 0`).
+- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push. Do not stage `protocol/split_self_test.py` or `protocol/split_cos_tools.py`.
+- Does not start `closed-loop` or `routing-load`.

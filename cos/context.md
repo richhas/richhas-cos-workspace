@@ -3261,3 +3261,280 @@ The original script slept 90 seconds inside a 60-second `run_check`, so the oute
 - No `cos/cos.py` change this turn. No later-slice tools. §3.6 and §3.7 stay on hold. No Claude client.
 - No commit. That needs `approve git commit` in a later directive.
 - The 12,000-character t...
+
+## 2026-10-23T22:15:22.671219+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/cos.py cos/tasks.md specs/cos-tools-plan.md cos/context.md cos/event_log.jsonl
+exit 0
+
+## 2026-10-23T22:15:23.921330+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record run_check, round cap 25, and session context
+exit 0
+[main 40d09cc] Record run_check, round cap 25, and session context
+ 5 files changed, 1000 insertions(+), 12 deletions(-)
+
+## 2026-10-23T22:15:26.153862+00:00
+- Dialog:
+  - In: approve git commit
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Committed once. Did not push.
+
+**Commit:** `40d09cc` — Record run_check, round cap 25, and session context.
+
+**Staged:** `cos/cos.py`, `cos/tasks.md`, `specs/cos-tools-plan.md`, `cos/context.md`, `cos/event_log.jsonl`.
+
+**Left untracked:** scratch and one-shot scripts, including `protocol/step8_self_test.py`, `protocol/test.txt`, `protocol/overflow_test.py`, `protocol/step2_self_test.py`, `protocol/step3_self_test.py`, `protocol/_fix_search_ctx.py`, and `cos/file_info.py`.
+
+**Branch:** `main` is 1 commit ahead of `origin/main` (`80b4a72`).
+
+**Still dirty:** `cos/context.md` and `cos/event_log.jsonl`. Logging rewrites them after every git action, so that residual is expected.
+
+**Not done:** this directive contained `approve git commit` only. Push needs a new directive with the exact phrase `approve git push`.
+
+## 2026-10-23T22:16:00.657551+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   80b4a72..40d09cc  main -> main
+
+## 2026-10-23T22:16:00.666437+00:00
+- Dialog:
+  - In: approve git push
+  - Tools: git, git, git (2 round(s))
+  - Out: HEAD is one commit ahead of origin/main. Pushing that commit only.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-23T22:19:18.431158+00:00
+- Dialog:
+  - In: So I present a problem... Much of what you do is modify cos source you don't have a means to do that and reload and to continue into your test runs. What can/should be done about that?
+  - Tools: search_in_file, search_in_file, search_in_file (2 round(s))
+  - Out: The gap is real, and it is structural. This process has no reload path. I did not change anything.
+
+**What is true now**
+- `cos/cos.py` is loaded once at startup. A write changes the file on disk. It does not change the tool loop already running.
+- There is no `importlib.reload` and no restart request.
+- `run_check` starts a new Python process, so a `protocol/` script can import the file on disk and test it. That does not make the new tool live in this loop.
+- `run_check` refuses anything under `cos/`. That should stay. The model should not execute its own orchestrator.
+
+**What not to do**
+Do not reload the module that is currently running the tool loop. That is a half-updated dispatcher. Do not add a shell, and do not let `run_check` run `cos/cos.py`.
+
+**What I would do**
+Split tools out of the main file. One restart installs a stable dispatcher that loads each tool module from disk ...
+
+## 2026-10-23T22:24:35.177841+00:00
+- Dialog:
+  - In: Explain in a more complete fashion
+  - Tools: search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file (6 round(s))
+  - Out: The gap is structural. This process loads its tools once, and nothing in the running loop can replace them. I did not change any files.
+
+**What is loaded once**
+
+`cos/cos.py` is one 3,986-line process. At import it builds a static `TOOLS` list. `execute_tool` is a fixed chain of `if name == ...` branches. `main()` reads the spec, the policy, the context, and the task list, then sits in `while True: input()`. There is no `importlib`, no reload, and no restart request.
+
+Two things are not frozen that way. `load_ask_first` re-reads `cos/prompts/ask-first.md` on every prompt build, so a policy edit is visible on the next call. The meta-spec text is cached in `_META_COS_TEXT` after the first load. The tool list is neither. It is the in-memory `TOOLS` object from startup.
+
+**What a source edit actually does**
+
+A `patch_file` or `write_file` of `cos/cos.py` changes the file on disk. It does ...
+
+## 2026-10-23T22:31:08.438743+00:00
+- Dialog:
+  - In: This "A write to a tool module
+  - Tools: search_files, search_in_file, search_in_file, read_file_tail, search_files, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file (9 round(s))
+  - Out: That fragment is the start of a sentence from the previous reply. It was cut off in the context file, and the event log only kept a short preview, so the rest of that sentence is not on disk. I did not change any files.
+
+**The sentence, completed**
+
+A write to a tool module is picked up on the next tool call, because the stable dispatcher re-reads that module from disk. A write to the dispatcher itself still needs one restart.
+
+**What that means**
+
+Today `TOOLS` and `execute_tool` are built once at import inside `cos/cos.py`. There is no `importlib`. A patch changes the file. This running loop keeps the old functions until you restart.
+
+The proposal was to split tools out of that file. One restart installs a small dispatcher that stays put. After that, a tool edit is visible on the next call in the same turn, and `run_check` can test the file on disk without executing `cos/cos.py`.
+
+T...
+
+## 2026-10-23T22:31:42.910709+00:00
+- Dialog:
+  - In: is then visible on your next directive, with no restart.
+  - Tools: search_in_file, search_in_file, search_files, read_file_tail, search_in_file (3 round(s))
+  - Out: That ending is close, and it is the proposal, not what happens today. The timing is also one step off.
+
+**Today.** A write to `cos/cos.py` is not visible on the next directive. This process keeps the tool list it built at startup. The file on disk changes. The running loop does not. A restart is required. There is no reload.
+
+**After the split, if you later tell me to build it.** A write to a tool module is visible on the next tool call in the same turn, not only on the next directive. The stable dispatcher re-reads that module from disk when the tool is invoked. No second restart. A write to the dispatcher itself still needs one restart. That one restart is the install. It is not repeated for each tool edit.
+
+**What stays refused.** `run_check` still will not run anything under `cos/`. It can import a tool module from a `protocol/` script and test the file on disk. It does not execut...
+
+## 2026-10-23T22:33:04.938840+00:00
+- Dialog:
+  - In: " is the problem I think. How would you run your own test after modifing a tool?
+  - Tools: search_in_file, search_in_file, search_in_file, read_file_range, search_in_file (3 round(s))
+  - Out: The quote is a real failure mode, but it is not what blocks the test. A disk edit can already be checked in this turn. The running loop still cannot use it.
+
+**What the quote broke.** The insert scripts searched for Python string literals inside `cos/cos.py`. Those lines are indented, quoted, and CRLF. One wrong quote, one missing indent, or a joined-text search returned 0 matches and refused before any write. That is why steps 4 and 5 ping-ponged. `patch_file` avoids that only when the search is copied from the file and is unique. A large splice into quoted prompt text is still fragile.
+
+**How I would test a tool change today.** `run_check` starts a new Python process. It sees the file on disk, not the functions this loop loaded at startup.
+
+1. Put the new or changed function in a module the check can import. A `protocol/` script may import it. `run_check` will not run anything under...
+
+## 2026-10-23T22:38:05.340407+00:00
+- Task: `tools-split` doing — Split tool functions out of cos/cos.py so a disk edit is visible on the next call
+- Note: User said backup cos.py, then do the split, then test. Backup first. No shell. Cap stays off.
+
+## 2026-10-23T22:38:05.462048+00:00
+- Dialog failed:
+  - In: Backup cos.cos.py before this next step. Then do the split and then test.
+  - Tools so far: file_info, file_outline, search_in_file, search_in_file, list_dir, read_file_head, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, update_task, read_file
+  - Error: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2384)')))
+
+## 2026-10-23T22:39:00.058195+00:00
+- Dialog:
+  - In: look at the returned error
+  - Tools: list_dir, list_dir, file_info, list_files, list_files, list_files (3 round(s))
+  - Out: The returned error is a transport failure. It is not a logic bug, and it did not write anything.
+
+**What failed.** At 22:38:05Z the next Grok call to `https://api.x.ai/v1/chat/completions` died with `SSLEOFError` / EOF in violation of protocol (`_ssl.c:2384`). `requests` retried, then raised `Max retries exceeded`. That alert is a corrupted or reset TLS record. Typical causes are a flaky link, HTTPS inspection, or a proxy. It is not a bad key, a rejected prompt, or a defect in `cos/cos.py`.
+
+**What landed before the drop.**
+- The turn had already read `cos/cos.py` and marked `tools-split` `doing`.
+- No backup was written. There is no `cos/cos.py.bak`, no `*backup*`, and no second `cos.py`.
+- `cos/cos.py` is still the step 8 file: 149,200 bytes, 3,986 lines, mtime 22:07:56Z, sha256 `83666c87…`. That is before the failed turn. The split was not applied.
+
+**Still true.** `tools-split` st...
+
+## 2026-10-23T22:43:18.723102+00:00
+- File change: wrote `cos/cos.py.bak-2026-10-23` (145214 bytes)
+
+## 2026-10-23T22:44:02.246795+00:00
+- File change: wrote `protocol/split_cos_tools.py` (15968 bytes)
+
+## 2026-10-23T22:46:37.699655+00:00
+- File change: wrote `protocol/split_cos_tools.py` (18653 bytes)
+
+## 2026-10-23T22:46:37.714819+00:00
+- File change: wrote `protocol/split_self_test.py` (2515 bytes)
+
+## 2026-10-23T22:47:30.020808+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-23T22:47:38.991099+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-23T22:47:39.061077+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-23T22:47:45.188757+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-23T22:47:45.295708+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-23T22:47:54.927436+00:00
+- File change: patched `protocol/split_self_test.py` (1 replacement(s))
+
+## 2026-10-23T22:48:15.649533+00:00
+- Dialog:
+  - In: backup cos.py, then do the split, then test
+  - Tools: file_info, file_outline, list_dir, search_in_file, read_file_head, search_in_file, search_in_file, read_file, read_file_range, search_in_file, read_file_range, read_file_range, read_file_range, read_file_range, read_file, write_file, file_info, file_info, write_file, run_check, write_file, write_file, run_check, run_check, search_in_file, search_in_file, search_in_file, read_file_head, search_in_file, patch_file, run_check, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, patch_file, patch_file, search_in_file, search_in_file, read_file_range, patch_file, patch_file, run_check, patch_file, run_check (25 round(s))
+  - Out: The backup, the split, and the disk test are done. This running process does not have the new dispatcher yet. Restart before the next tool edit. Not signed off. The cap stays off.
+
+**Backup**
+- `cos/cos.py.bak-2026-10-23` matches the live file that was on disk at the start of this turn: 149,200 bytes, 3,986 lines, sha256 `83666c87…`.
+
+**Split**
+- Tool bodies moved to `cos/tools_impl.py`. `cos/cos.py` is now the dispatcher (98,363 bytes).
+- Each tool call loads `cos/tools_impl.py` from disk and binds the running module’s globals. A write to that file is visible on the next call. A write to `cos/cos.py` still needs one restart.
+- The sixteen tools stay, in the same order. `TOOL_RESULT_CHAR_LIMIT` is still `None`. `MAX_TOOL_ROUNDS` is still 25. No new tool. No shell.
+
+**Test**
+- `protocol/split_self_test.py` exited 0: ten `PASS` lines, then `fails 0`.
+- That included a real `read_file`, ...
+
+## 2026-10-23T22:49:42.167220+00:00
+- Dialog:
+  - In: What do I do next
+  - Tools: (none) (1 round(s))
+  - Out: Restart this COS process. This session still has the old tool loop in memory. The split is on disk and the disk test passed, but it is not live here and it is not signed off.
+
+**Do this**
+1. Stop this process and start it again so the new dispatcher in `cos/cos.py` loads.
+2. After restart, ask me to confirm the split is live. I will read, not change files.
+3. If that check is clean, a separate `sign off` closes `tools-split` only. It does not start another slice.
+
+**Already done, left as-is**
+- Backup: `cos/cos.py.bak-2026-10-23` (149,200 bytes, sha256 `83666c87…`).
+- Tools moved to `cos/tools_impl.py`. Dispatcher is `cos/cos.py` (98,363 bytes).
+- `protocol/split_self_test.py` exited 0 (`fails 0`). Do not stage that script.
+
+**Not next**
+No commit, no push, no cap restore, and no new tool. A commit still needs `approve git commit` in a later directive.
+
+## 2026-10-23T22:50:44.531216+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T22:51:47.362828+00:00
+- Dialog:
+  - In: check things out
+  - Tools: file_info, file_info, file_info, file_outline, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file (6 round(s))
+  - Out: The split is live. This restarted process is the new dispatcher. I did not change any files, and this is not a sign-off.
+
+**What loaded**
+- `cos/cos.py` is the dispatcher: 98,363 bytes, 2,521 lines, sha256 `a75d9f31…`, mtime 22:46:39Z.
+- `cos/tools_impl.py` holds the tool bodies: 53,178 bytes, 1,524 lines, sha256 `41fd2c61…`.
+- Backup `cos/cos.py.bak-2026-10-23` still matches the pre-split file: 149,200 bytes, sha256 `83666c87…`.
+
+**What this turn proved**
+- `execute_tool` reloads `cos/tools_impl.py` from disk before every call, then dispatches into that module. This turn’s reads, outlines, and searches went through that path.
+- All sixteen tools are registered, in order: `list_dir`, `read_file`, `write_file`, `update_task`, `git`, `handoff`, `file_info`, `file_outline`, `read_file_range`, `read_file_head`, `read_file_tail`, `search_in_file`, `search_files`, `list_files`, `patch_file`...
+
+## 2026-10-23T22:53:15.995391+00:00
+- Task: `tools-split` done — Split tool functions out of cos/cos.py so a disk edit is visible on the next call
+- Note: User signed off 2026-10-23: "sign off". Split is live after restart. Disk test passed (fails 0). Does not start a later slice. Cap stays off.
+
+## 2026-10-23T22:53:16.010568+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-23T22:53:18.397826+00:00
+- Dialog:
+  - In: sign off
+  - Tools: file_outline, search_in_file, search_in_file, read_file_tail, search_in_file, update_task, patch_file (4 round(s))
+  - Out: Sign-off accepted. The split is closed. No later slice was started. The cap stays off.
+
+**What "sign off" covered**
+- Tool bodies in `cos/tools_impl.py`. This restarted dispatcher reloads that file on each call.
+- Backup `cos/cos.py.bak-2026-10-23` still matches the pre-split file.
+- Disk test passed: `protocol/split_self_test.py` exited 0 (`fails 0`).
+
+**Recorded**
+- `tools-split` is done, with the sign-off note.
+- `specs/cos-tools-plan.md` now says that sign-off does not start a later slice.
+
+**Not done**
+- No new tool. No `run_command`. §3.6 and §3.7 stay on hold. No Claude client.
+- No commit. That needs `approve git commit` in a later directive. Do not stage `protocol/split_self_test.py` or `protocol/split_cos_tools.py`.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+Still open, and not implied by this sign-off: `closed-loop` and `routing...
+
+## 2026-10-23T22:55:28.788745+00:00
+- Dialog:
+  - In: archive all
+  - Tools: list_dir, search_files, read_file, git, search_in_file, search_in_file (4 round(s))
+  - Out: `archive all` is not a defined action. I did not move, delete, or commit anything.
+
+**What is on disk**
+- Product files that are modified and not committed: `cos/cos.py`, `cos/tools_impl.py` (untracked), `cos/tasks.md`, `specs/cos-tools-plan.md`.
+- Session files, dirty by design: `cos/context.md`, `cos/event_log.jsonl` (1.1 MB).
+- Backup: `cos/cos.py.bak-2026-10-23`.
+- Scratch and one-shot scripts under `protocol/` (`_cos_parts/`, `_step*`, `step*_self_test.py`, `split_*`, `uncap_tool_results.py`, empty `test.txt` and `overflow_test.py`) plus `cos/file_info.py`, `cos/TestResults.txt`, `cos/__init__.py`, `cos/__pycache__/`.
+
+There is no archive convention in the specs, and I cannot delete files. Moving those scripts into an archive folder would still leave them in the tree, and `cos/tools_impl.py` is live — it must not be archived.
+
+**If you want them saved to GitHub**, one directive w...
