@@ -9,7 +9,7 @@ from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 10 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
 file_info, file_outline, read_file_range, read_file_head, read_file_tail,
-search_in_file. No shell. No cross-file search. No patch.
+search_in_file, search_files, list_files. No shell. No patch.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
@@ -79,6 +79,13 @@ SEARCH_IN_FILE_MAX_MATCHES = 50
 SEARCH_IN_FILE_MAX_CONTEXT = 5
 SEARCH_IN_FILE_MAX_PATTERN = 200
 
+# Cross-file search and glob listing. Additive. Do not replace list_dir
+# or search_in_file. Recursion is off unless asked. .git is not expanded.
+SEARCH_FILES_MAX_MATCHES = 50
+SEARCH_FILES_MAX_FILES = 200
+SEARCH_FILES_MAX_FILE_BYTES = 1_000_000
+LIST_FILES_MAX_ENTRIES = 400
+
 # Directory listing is bounded, workspace-scoped, and does not follow symlinks.
 LIST_DIR_MAX_ENTRIES = 400
 LIST_DIR_MAX_DEPTH = 6
@@ -146,19 +153,25 @@ AGENT_SYSTEM_EXTRA = (
     "If the current directive is a question, statement, or observation, "
     "do not call write_file, update_task, handoff, or git add/commit/push. "
     "You may call list_dir, read_file, file_info, file_outline, "
-    "read_file_range, read_file_head, read_file_tail, and search_in_file "
+    "read_file_range, read_file_head, read_file_tail, search_in_file, "
+    "search_files, and list_files "
     "only when a read is required to answer. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
     "handoff(task), file_info(path), file_outline(path), "
     "read_file_range(path, start_line, end_line), read_file_head(path, n), "
-    "read_file_tail(path, n), search_in_file(path, pattern, context_lines). "
-    "file_info, file_outline, and the partial reads are additive. "
+    "read_file_tail(path, n), search_in_file(path, pattern, context_lines), "
+    "search_files(pattern, path, context_lines), "
+    "list_files(path, glob, recursive). "
+    "file_info, file_outline, the partial reads, search_files, and list_files are additive. "
     "They do not replace read_file or write_file. "
     "Prefer file_info, file_outline, or a partial read before a full read of a large file. "
     "read_file_range is inclusive and 1-based. An out-of-range request errors; it does not return the whole file. "
     "search_in_file searches one file only. It is not search_files. "
+    "search_files is a literal in-workspace search. It is not regex and not search_in_file. "
+    "list_files is a simple glob listing. Recursion is off unless asked. "
+    "Neither replaces list_dir. Neither expands .git. "
     "Use list_dir first when you need to see what files exist; do not guess paths. "
     "list_dir path is workspace-relative; pass '.' for the workspace root. "
     "It returns workspace-relative paths you can pass to read_file. "
@@ -527,6 +540,74 @@ TOOLS = [
                     },
                 },
                 "required": ["path", "pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_files",
+            "description": (
+                "Search workspace text files for a literal pattern. "
+                "Returns matching lines with context_lines of context (default 2, max 5). "
+                "path defaults to '.'. Recursion is off unless recursive is true. "
+                "Does not use regex. Does not expand .git, __pycache__, .venv, "
+                "node_modules, or .idea. Does not replace search_in_file or list_dir. "
+                "Not patch_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "Literal text to find. Not a regex. Max 200 characters.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file or directory. Default '.' .",
+                    },
+                    "context_lines": {
+                        "type": "integer",
+                        "description": "Lines of context before and after each match. Default 2. Max 5.",
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Search subdirectories. Default false.",
+                    },
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": (
+                "List workspace files matching a simple glob. "
+                "path defaults to '.'. glob defaults to '*'. "
+                "Recursion is off unless recursive is true. "
+                "Returns workspace-relative paths. Does not follow symlinks. "
+                "Does not expand .git, __pycache__, .venv, node_modules, or .idea. "
+                "Does not replace list_dir. Not search_files. Not patch_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative directory or file. Default '.' .",
+                    },
+                    "glob": {
+                        "type": "string",
+                        "description": "Simple glob: *, ?, and character classes. Default '*'. Not a regex.",
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Include subdirectories. Default false.",
+                    },
+                },
+                "required": [],
             },
         },
     },
@@ -1606,6 +1687,309 @@ def search_in_file(rel_path: str, pattern: str, context_lines=2) -> str:
     return text
 
 
+def _parse_bool(value, label: str, default: bool = False) -> bool:
+    """Accept a real bool. Missing means default. Strings are not accepted."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{label} must be a boolean")
+
+
+def _simple_glob_match(name: str, pattern: str) -> bool:
+    """Match one file name against a simple glob. Not a path glob. Not regex.
+
+    Supports *, ?, and [] classes. ** is rejected by the caller.
+    """
+    if pattern is None:
+        pattern = "*"
+    if not isinstance(pattern, str) or pattern.strip() == "":
+        raise ValueError("glob must be a non-empty string")
+    pattern = pattern.strip()
+    if "/" in pattern or "\\" in pattern or "**" in pattern:
+        raise ValueError("glob matches a file name only; no path separators")
+    return _glob_match_at(name, pattern, 0, 0)
+
+
+def _glob_match_at(name: str, pattern: str, ni: int, pi: int) -> bool:
+    while pi < len(pattern):
+        tok = pattern[pi]
+        if tok == "*":
+            pi += 1
+            if pi == len(pattern):
+                return True
+            while ni <= len(name):
+                if _glob_match_at(name, pattern, ni, pi):
+                    return True
+                ni += 1
+            return False
+        if ni >= len(name):
+            return False
+        if tok == "?":
+            ni += 1
+            pi += 1
+            continue
+        if tok == "[":
+            end = pattern.find("]", pi + 1)
+            if end < 0:
+                raise ValueError("glob has an unclosed character class")
+            if _glob_class_match(name[ni], pattern[pi + 1:end]):
+                ni += 1
+                pi = end + 1
+                continue
+            return False
+        if name[ni] != tok:
+            return False
+        ni += 1
+        pi += 1
+    return ni == len(name)
+
+
+def _glob_class_match(ch: str, body: str) -> bool:
+    if body == "":
+        return False
+    negate = body[0] == "!"
+    if negate:
+        body = body[1:]
+    matched = False
+    i = 0
+    while i < len(body):
+        if i + 2 < len(body) and body[i + 1] == "-":
+            if body[i] <= ch <= body[i + 2]:
+                matched = True
+                break
+            i += 3
+            continue
+        if body[i] == ch:
+            matched = True
+            break
+        i += 1
+    return (not matched) if negate else matched
+
+
+def _skip_expand_dir(path: Path) -> bool:
+    return path.name in _LIST_DIR_SKIP_EXPAND
+
+
+def _iter_workspace_files(start: Path, recursive: bool):
+    """Yield files under start. Does not follow symlinks. Does not expand .git.
+
+    start is already resolved and inside the workspace. A file yields itself.
+    """
+    if start.is_symlink():
+        return
+    if start.is_file():
+        yield start
+        return
+    if not start.is_dir():
+        return
+    if _skip_expand_dir(start) and start != ROOT.resolve():
+        return
+    stack = [start]
+    seen = 0
+    while stack:
+        directory = stack.pop()
+        try:
+            children = list(directory.iterdir())
+        except OSError:
+            continue
+        children.sort(key=lambda p: p.name.lower())
+        subdirs = []
+        for child in children:
+            seen += 1
+            if seen > SEARCH_FILES_MAX_FILES * 8:
+                return
+            try:
+                if child.is_symlink():
+                    continue
+                resolved = child.resolve()
+                root = ROOT.resolve()
+                if resolved != root and root not in resolved.parents:
+                    continue
+                if child.is_file():
+                    yield child
+                elif child.is_dir() and recursive and not _skip_expand_dir(child):
+                    subdirs.append(child)
+            except OSError:
+                continue
+        if recursive:
+            stack.extend(reversed(subdirs))
+
+
+def search_files(pattern: str, rel_path: str = ".", context_lines=2, recursive=False) -> str:
+    """Literal search across workspace text files. Not regex. Not search_in_file.
+
+    Recursion is off unless asked. .git and the other skip dirs are not expanded.
+    Does not replace list_dir. Does not write.
+    """
+    if not isinstance(pattern, str) or pattern == "":
+        raise ValueError("pattern is required")
+    if len(pattern) > SEARCH_IN_FILE_MAX_PATTERN:
+        raise ValueError(
+            f"pattern is {len(pattern)} characters; max is {SEARCH_IN_FILE_MAX_PATTERN}"
+        )
+    ctx = _parse_context_lines(context_lines)
+    recursive = _parse_bool(recursive, "recursive", False)
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        rel_path = "."
+    raw = rel_path.strip().replace("\\", "/").rstrip("/") or "."
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    root = ROOT.resolve()
+    files_seen = 0
+    files_searched = 0
+    files_skipped = 0
+    match_total = 0
+    shown = 0
+    omitted = 0
+    blocks = []
+    for path in _iter_workspace_files(target, recursive):
+        files_seen += 1
+        if files_seen > SEARCH_FILES_MAX_FILES:
+            files_skipped += 1
+            break
+        try:
+            size = path.stat().st_size
+        except OSError:
+            files_skipped += 1
+            continue
+        if size > SEARCH_FILES_MAX_FILE_BYTES:
+            files_skipped += 1
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            files_skipped += 1
+            continue
+        files_searched += 1
+        lines = text.splitlines()
+        total = len(lines)
+        hits = [i for i, line in enumerate(lines, 1) if pattern in line]
+        if not hits:
+            continue
+        match_total += len(hits)
+        room = SEARCH_FILES_MAX_MATCHES - shown
+        if room <= 0:
+            omitted += len(hits)
+            continue
+        use = hits[:room]
+        omitted += len(hits) - len(use)
+        shown += len(use)
+        try:
+            rel = path.resolve().relative_to(root).as_posix()
+        except ValueError:
+            rel = path.name
+        spans = []
+        for hit in use:
+            start = max(1, hit - ctx)
+            end = min(total, hit + ctx)
+            if spans and start <= spans[-1][1] + 1:
+                spans[-1] = (spans[-1][0], max(spans[-1][1], end))
+            else:
+                spans.append((start, end))
+        body = "\n---\n".join(
+            _format_line_span(lines, start, end, total) for start, end in spans
+        )
+        blocks.append(f"path: {rel}\n{body}")
+    header = [
+        f"pattern: {pattern}",
+        f"root: {raw}",
+        f"recursive: {str(recursive).lower()}",
+        f"files_searched: {files_searched}",
+        f"files_skipped: {files_skipped}",
+        f"matches: {match_total}",
+        f"shown: {shown}",
+        f"context_lines: {ctx}",
+    ]
+    if omitted or files_seen > SEARCH_FILES_MAX_FILES:
+        header.append(
+            f"truncated: yes; omitted {omitted} matches past {SEARCH_FILES_MAX_MATCHES}"
+        )
+    if not blocks:
+        header.append("no matches")
+        text = "\n".join(header)
+    else:
+        text = "\n".join(header) + "\n" + "\n---\n".join(blocks)
+    log_event(
+        "files_search",
+        f"Search {raw} matches={match_total}",
+        detail={
+            "path": raw,
+            "matches": match_total,
+            "shown": shown,
+            "files_searched": files_searched,
+            "recursive": recursive,
+        },
+    )
+    return text
+
+
+def list_files(rel_path: str = ".", glob: str = "*", recursive=False) -> str:
+    """List workspace files matching a simple glob. Does not replace list_dir.
+
+    Recursion is off unless asked. .git is not expanded. Not a regex.
+    """
+    recursive = _parse_bool(recursive, "recursive", False)
+    if glob is None:
+        glob = "*"
+    if not isinstance(glob, str) or glob.strip() == "":
+        raise ValueError("glob must be a non-empty string")
+    glob = glob.strip()
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        rel_path = "."
+    raw = rel_path.strip().replace("\\", "/").rstrip("/") or "."
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    root = ROOT.resolve()
+    names = []
+    truncated = False
+    seen = 0
+    for path in _iter_workspace_files(target, recursive):
+        seen += 1
+        if not _simple_glob_match(path.name, glob):
+            continue
+        if len(names) >= LIST_FILES_MAX_ENTRIES:
+            truncated = True
+            break
+        try:
+            rel = path.resolve().relative_to(root).as_posix()
+        except ValueError:
+            continue
+        names.append(rel)
+    names.sort()
+    header = [
+        f"root: {raw}",
+        f"glob: {glob}",
+        f"recursive: {str(recursive).lower()}",
+        f"count: {len(names)}",
+    ]
+    if truncated:
+        header.append(
+            f"truncated: yes; stopped at {LIST_FILES_MAX_ENTRIES} matches"
+        )
+    if not names:
+        header.append("no matches")
+        text = "\n".join(header)
+    else:
+        text = "\n".join(header + names)
+    log_event(
+        "files_list",
+        f"Listed files {raw} glob={glob}",
+        detail={
+            "path": raw,
+            "glob": glob,
+            "count": len(names),
+            "recursive": recursive,
+            "truncated": truncated,
+        },
+    )
+    return text
+
+
 def list_dir(rel_path: str = ".") -> str:
     """List a workspace directory. Bounded, no symlink follow, no path escape.
 
@@ -2674,6 +3058,35 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
                 detail={"tool": name, "path": rel, "round": round_i},
             )
             return text
+        if name == "search_files":
+            pattern = arguments.get("pattern")
+            if not isinstance(pattern, str):
+                raise ValueError("pattern is required")
+            rel = str(arguments.get("path") or ".").strip() or "."
+            ctx = arguments.get("context_lines", 2)
+            text = search_files(pattern, rel, ctx, arguments.get("recursive", False))
+            emit(f"[tool] search_files {rel}")
+            log_event(
+                "tool_exec",
+                f"search_files {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "list_files":
+            rel = str(arguments.get("path") or ".").strip() or "."
+            glob = arguments.get("glob", "*")
+            if glob is None:
+                glob = "*"
+            if not isinstance(glob, str):
+                raise ValueError("glob must be a string")
+            text = list_files(rel, glob, arguments.get("recursive", False))
+            emit(f"[tool] list_files {rel}")
+            log_event(
+                "tool_exec",
+                f"list_files {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
         raise ValueError(f"unknown tool: {name}")
     except Exception as e:
         err = _clip(str(e), 300)
@@ -3007,6 +3420,7 @@ def print_commands():
     emit("Ask-first is locked: questions and statements are not permission to act.")
     emit("Tool-result character cap stays off until partial IO is verified.")
     emit("Partial reads: read_file_range, read_file_head, read_file_tail, search_in_file.")
+emit("Cross-file: search_files, list_files. Recursion off unless asked. .git not expanded.")
 
 
 def _repl_git(user_input: str) -> None:

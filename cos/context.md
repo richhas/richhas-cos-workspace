@@ -2048,3 +2048,340 @@ Scratch and one-shot scripts: `protocol/test.txt`, `protocol/overflow_test.py`, 
 
 **To do it**
 One directive with the exact phrase `...
+
+## 2026-10-23T18:55:21.509255+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/cos.py cos/tasks.md specs/cos-tools-plan.md cos/context.md cos/event_log.jsonl
+exit 0
+
+## 2026-10-23T18:55:22.972144+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record partial reads, step 3 sign-off, and session context
+exit 0
+[main dba1091] Record partial reads, step 3 sign-off, and session context
+ 5 files changed, 1617 insertions(+), 55 deletions(-)
+
+## 2026-10-23T18:55:27.299066+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   2cbaf14..dba1091  main -> main
+
+## 2026-10-23T18:55:27.299066+00:00
+- Dialog:
+  - In: approve git commit and then approve git push
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Commit `dba1091` landed. Pushing once to origin/main.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-23T18:56:24.635159+00:00
+- Dialog:
+  - In: Where all of the recent newly added tools tested?
+  - Tools: file_outline, file_info, file_info, file_info, search_in_file, read_file, read_file, search_in_file, search_in_file (3 round(s))
+  - Out: No. Not all of them, and not as one suite. The recent additions were checked in two script runs, then signed off. Step 4 tools were never written, so they were not tested.
+
+**Step 2 — tested and signed off**
+`file_info` and `file_outline`, plus the 12,000-character cap that was live then. `protocol/step2_self_test.py` was run by you, one line at a time, ending in `fails 0`. You signed off with “I sign off step 2”. That script is now stale: it still expects the cap to be 12,000. The live value is `None`.
+
+**Step 3 — tested and signed off**
+`read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file`. `cos/TestResults.txt` (18:49:42Z) is the full run of `protocol/step3_self_test.py`: 18 `PASS` lines, then `fails 0`. You signed off with “sign off”. That script also checks the six older tools are still registered, the cap is off, and `search_files` / `list_files` / `patch_f...
+
+## 2026-10-23T18:58:25.829873+00:00
+- Dialog:
+  - In: outline the remaining plan for me.
+  - Tools: file_outline, file_info, file_outline, read_file_range, read_file_range (3 round(s))
+  - Out: The remaining tools plan is steps 4–6. Nothing in this outline starts them.
+
+**Done and signed off**
+1. Spec correction (`specs/cos-tools.md` v1.3).
+2. `file_info`, `file_outline`, and the 12,000-character cap. The cap was later turned off and stays off.
+3. `read_file_range`, `read_file_head`, `read_file_tail`, `search_in_file`. Signed off 2026-10-23 after `fails 0`.
+
+**Next, one instruction each**
+4. `tools-4-search` — eligible, not started. Add `search_files` and `list_files` beside the current tools. In-workspace only. Recursion off unless asked. `.git` stays unexpanded. Does not replace `list_dir`. No patch. Cap stays off. Verify: a known hit and a miss in `specs/`, `*.json` under `protocol/` stays in the workspace, `.git` is not expanded, `list_dir` and `search_in_file` still work. Then you sign off.
+5. `tools-5-patch` — blocked on that sign-off. Add `patch_file` only: unique lit...
+
+## 2026-10-23T18:59:32.891591+00:00
+- Task: `tools-4-search` doing — Add in-workspace search_files and list_files
+- Note: User said do step 4. Adding search_files and list_files only. No patch. Cap stays off.
+
+## 2026-10-23T19:00:19.453116+00:00
+- File change: wrote `protocol/_step4_insert.py` (20047 bytes)
+
+## 2026-10-23T19:00:34.396484+00:00
+- File change: wrote `protocol/step4_self_test.py` (2860 bytes)
+
+## 2026-10-23T19:00:34.474967+00:00
+- Dialog failed:
+  - In: do step 4
+  - Tools so far: update_task, file_outline, file_outline, file_outline, read_file_range, read_file_range, file_info, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, write_file, search_in_file, search_in_file, search_in_file, search_in_file, write_file
+  - Error: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2384)')))
+
+## 2026-10-23T19:02:28.419599+00:00
+- Dialog failed:
+  - In: Grok call failed: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions
+  - Tools so far: (none)
+  - Error: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac (_ssl.c:2536)')))
+
+## 2026-10-23T19:02:47.998102+00:00
+- Dialog:
+  - In: (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2384)')))
+  - Tools: search_in_file, search_in_file, file_info, file_info, file_info (2 round(s))
+  - Out: That line is the leftover tail of the failed API call, not a new instruction. Nothing was changed this turn.
+
+**What failed.** At 19:00:34Z the step 4 turn died on TLS to `api.x.ai`: `SSLEOFError` / EOF in violation of protocol. The next call died the same way (`SSLV3_ALERT_BAD_RECORD_MAC`). Both are transport failures. Not a logic bug, not a bad key, not a rejected prompt.
+
+**What landed before the drop.**
+- `protocol/_step4_insert.py` (20,629 bytes, 19:00:19Z) and `protocol/step4_self_test.py` (2,953 bytes, 19:00:34Z) were written. Do not stage them.
+- `cos/cos.py` was not rewritten. It is still the step 3 file: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`, mtime 18:42:17Z. `search_files` and `list_files` are not in it.
+- `tools-4-search` is still `doing`. Not signed off. Step 5 was not started. The cap is still off.
+
+**Not done.** Step 4 is incomplete. I will not run the insert s...
+
+## 2026-10-23T19:03:43.939286+00:00
+- Dialog failed:
+  - In: do step 4
+  - Tools so far: (none)
+  - Error: 403 Client Error: Forbidden for url: https://api.x.ai/v1/chat/completions | {"code":"permission-denied","error":"Your team ffd46e5a-0aca-4384-87c7-b5c12aab7f02 has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit."}
+
+## 2026-10-23T19:07:55.870091+00:00
+- Task: `tools-4-search` doing — Add in-workspace search_files and list_files
+- Note: User said do step 4. Applying search_files and list_files into cos/cos.py. No patch. Cap stays off.
+
+## 2026-10-23T19:08:27.440757+00:00
+- File change: wrote `protocol/_step4_insert.py` (20047 bytes)
+
+## 2026-10-23T19:08:50.825921+00:00
+- Task: `tools-4-search` doing — Add in-workspace search_files and list_files
+- Note: Insert script ready. cos/cos.py not changed until you run protocol/_step4_insert.py. No patch. Cap stays off. Not signed off.
+
+## 2026-10-23T19:08:54.576074+00:00
+- Dialog:
+  - In: do step 4
+  - Tools: file_outline, file_outline, file_outline, file_info, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, search_in_file, file_info, file_outline, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, read_file, read_file_range, update_task, read_file_range, write_file, update_task (10 round(s))
+  - Out: Step 4 is not in `cos/cos.py` yet. I cannot run Python from this turn, and a full rewrite of that 119,188-byte file is the failure mode that stalled step 3. The insert is ready for you to run.
+
+**What is ready**
+- `protocol/_step4_insert.py` (20,047 bytes). It edits the live file in place only if size, line count, and sha256 still match the signed-off step 3 copy (`ca7f6e5d…`, 119,188 bytes, 3,204 lines).
+- It adds `search_files` and `list_files` only. Recursion is off unless asked. `.git` is not expanded. Neither replaces `list_dir` or `search_in_file`.
+- It refuses if any anchor is not unique, if `patch_file` appears, or if the cap is not still `None`. A failed compile restores the original bytes.
+- `protocol/step4_self_test.py` is already on disk from the earlier turn. Do not stage either script.
+
+**Not changed**
+- `cos/cos.py`. Still the step 3 file. `search_files` and `list_files...
+
+## 2026-10-23T19:10:41.981237+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:11:08.750699+00:00
+- Dialog:
+  - In: REFUSED: prompt reads: expected 1 match, found 0
+  - Tools: search_in_file, file_info, file_info, search_in_file, search_in_file, read_file_range, read_file_range (4 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**What matched.** The live file is still the signed-off step 3 copy: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`. The script got past that gate, then stopped on the `prompt reads` anchor.
+
+**Why.** `PROMPT_OLD` looks for this exact three-line string:
+
+```
+"You may call list_dir, read_file, file_info, file_outline, "
+"read_file_range, read_file_head, read_file_tail, and search_in_file "
+"only when a read is required to answer. "
+```
+
+The live prompt is one string, not three source lines. Lines 148–150 of `cos/cos.py` are:
+
+```
+"You may call list_dir, read_file, file_info, file_outline, "
+"read_file_range, read_file_head, read_file_tail, and search_in_file "
+"only when a read is required to answer. "
+```
+
+Those are the same words, but the script searches the joined source text for the three quoted lines as one block. That block ...
+
+## 2026-10-23T19:12:44.875608+00:00
+- File change: wrote `protocol/_step4_insert.py` (20344 bytes)
+
+## 2026-10-23T19:12:54.502539+00:00
+- Dialog:
+  - In: fix the step 4 insert script
+  - Tools: search_in_file, search_in_file, file_info, file_info, search_in_file, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, write_file, search_in_file, search_in_file, search_in_file (10 round(s))
+  - Out: Fixed `protocol/_step4_insert.py`. `cos/cos.py` was not changed.
+
+**Cause.** The refusal was correct. `PROMPT_OLD` searched for quoted source lines (`"You may call … "\n`). The live prompt is the joined string, without those quotes. That is why `prompt reads` found 0 matches. The file is still the signed-off step 3 copy: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`.
+
+**Change.** The three prompt anchors now match the joined text. The function anchor also includes the `list_dir` docstring so it cannot hit another `return text`. Same gates: size, line count, sha256, one match, compile, restore on failure. No `patch_file`. Cap stays `None`. Do not stage the script.
+
+**Run this from the workspace root, then restart.**
+```
+python protocol/_step4_insert.py
+```
+Pass is one line starting with `wrote`. Until you restart, `search_files` and `list_files` are not live. Step 4 is not signed off....
+
+## 2026-10-23T19:13:23.096677+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:14:37.035336+00:00
+- File change: wrote `protocol/_step4_insert.py` (20467 bytes)
+
+## 2026-10-23T19:14:40.893607+00:00
+- Dialog:
+  - In: REFUSED: prompt reads: expected 1 match, found 0
+  - Tools: search_in_file, search_in_file, file_info, file_info, read_file_range, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, read_file_range, search_in_file, read_file, write_file, search_in_file, file_info, file_info (9 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**Cause.** The last fix inverted the match. `PROMPT_OLD` searched for the joined prompt text. The script searches the source file, where those words are still three quoted lines. That is why `prompt reads` found 0 matches. The live file is still the signed-off step 3 copy: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`.
+
+**Change.** Rewrote `protocol/_step4_insert.py` (21,056 bytes). The three prompt anchors are now the quoted source lines, including the quotes and the line breaks. Same gates: size, line count, sha256, one match, compile, restore on failure. No `patch_file`. Cap stays `None`. Do not stage the script.
+
+**Run this from the workspace root, then restart.**
+```
+python protocol/_step4_insert.py
+```
+Pass is one line starting with `wrote`. Until you restart, `search_files` and `list_files` are not live. Step 4 is not sig...
+
+## 2026-10-23T19:15:13.721273+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:16:20.962533+00:00
+- File change: wrote `protocol/_step4_insert.py` (20578 bytes)
+
+## 2026-10-23T19:16:21.105505+00:00
+- Dialog failed:
+  - In: REFUSED: prompt reads: expected 1 match, found 0
+  - Tools so far: search_in_file, search_in_file, file_info, file_info, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, read_file_range, write_file
+  - Error: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2384)')))
+
+## 2026-10-23T19:17:02.597328+00:00
+- Dialog:
+  - In: Grok call failed: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions
+  - Tools: file_info, file_info, search_in_file, search_in_file, search_in_file (3 round(s))
+  - Out: The SSL error was a transport failure. It happened after the script rewrite, before the summary could be sent. Nothing in `cos/cos.py` was changed.
+
+**What failed.** At 19:16:21Z the next Grok call died on TLS to `api.x.ai`: `SSLEOFError` / EOF in violation of protocol. Same class of failure as the earlier drops. Not a logic bug, not a bad key, not a rejected prompt.
+
+**What landed before the drop.**
+- `protocol/_step4_insert.py` was rewritten (21,168 bytes, 590 lines, 19:16:20Z). The `prompt reads` anchor is now the quoted source lines, including the quotes and the line breaks. That is the form that exists in `cos/cos.py` lines 148–150.
+- `cos/cos.py` is still the signed-off step 3 copy: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`, mtime 18:42:17Z. `search_files` and `list_files` are not in it.
+
+**Not done.** Step 4 is not applied and not signed off. The cap is still off. Step 5 w...
+
+## 2026-10-23T19:17:20.674877+00:00
+- Dialog:
+  - In: (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2384)')))
+  - Tools: (none) (1 round(s))
+  - Out: That line is the leftover tail of the failed API call, not a new instruction. Nothing was changed this turn.
+
+**What failed.** The step 4 turn died on TLS to `api.x.ai`: `SSLEOFError` / EOF in violation of protocol. Transport failure. Not a logic bug, not a bad key, not a rejected prompt.
+
+**What is on disk.**
+- `protocol/_step4_insert.py` was rewritten before the drop (21,168 bytes, 19:16:20Z). The `prompt reads` anchor is the quoted source lines, including the quotes and the line breaks — the form in `cos/cos.py` lines 148–150.
+- `cos/cos.py` is still the signed-off step 3 copy: 119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`. `search_files` and `list_files` are not in it.
+- `tools-4-search` stays `doing`. Not signed off. Step 5 was not started. The cap is still off.
+
+**Not done.** Step 4 is not applied. I will not run the insert script from this paste.
+
+**If you want it applied,** f...
+
+## 2026-10-23T19:17:47.503178+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:18:10.496821+00:00
+- Dialog:
+  - In: wrote C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace\cos\cos.py (134062 bytes, '\r\n'). cap stays None. do not stage this script
+  - Tools: file_info, file_info, git, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file, search_in_file (3 round(s))
+  - Out: The insert landed. This restarted process already has `search_files` and `list_files`. The script was not staged.
+
+**Confirmed**
+- `cos/cos.py` is 134,062 bytes, 3,618 lines, mtime 19:17:34Z, sha256 `d78cb111…`. That matches the script line. The previous signed-off copy was 119,188 bytes.
+- `search_files` and `list_files` are defined, registered, and dispatched. Recursion is off unless asked. `.git` is not expanded. Neither replaces `list_dir` or `search_in_file`.
+- `TOOL_RESULT_CHAR_LIMIT` is still `None`. The 12,000 cap was not restored.
+- `patch_file` is not a tool. It appears only as “not this.”
+- `protocol/_step4_insert.py` is untracked. `cos/cos.py` is modified and not staged. Nothing was added, committed, or pushed.
+
+**Not done**
+- Step 4 is not signed off. `tools-4-search` stays `doing`. Step 5 was not started.
+- I cannot run the self-test from this turn.
+
+**If you want the ch...
+
+## 2026-10-23T19:19:01.287929+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T19:19:27.063647+00:00
+- Dialog:
+  - In: see cos\TestResults.txt
+  - Tools: file_info, read_file (2 round(s))
+  - Out: The step 4 script passed. That is a pass, not a sign-off. I did not change any files.
+
+**Result:** `cos/TestResults.txt` (513 bytes, 13 lines, 19:18:50Z) ends with `fails 0`. Every named check says `PASS`.
+
+**What passed**
+- Tools, in order, through `search_files` and `list_files`.
+- Cap is `None`. It was not turned back on.
+- `patch_file` is not registered.
+- A known search hit and a miss. `*.json` under `protocol/` stays in the workspace. `.git` is not expanded.
+- `list_dir` still works. `search_in_file` is still one file. A path outside the workspace errors.
+
+**Not done**
+- `tools-4-search` stays `doing` until you sign off. Step 5 stays blocked.
+- No commit. That needs `approve git commit` in a later directive.
+
+A sign-off is a separate instruction, for example “sign off”. That still does not start step 5.
+
+## 2026-10-23T19:20:08.417695+00:00
+- Task: `tools-4-search` done — Add in-workspace search_files and list_files
+- Note: User signed off 2026-10-23: "sign-off". Script passed (fails 0). Cap stays off. Does not start step 5.
+
+## 2026-10-23T19:20:08.432875+00:00
+- Task: `tools-5-patch` open — Add patch_file with unique literal match and a short diff
+- Note: Step 4 signed off. Eligible, not started. Needs its own instruction. No multi-file writes. Cap stays off.
+
+## 2026-10-23T19:20:30.777648+00:00
+- File change: wrote `specs/cos-tools-plan.md` (13114 bytes)
+
+## 2026-10-23T19:20:33.089710+00:00
+- Dialog:
+  - In: sign-off
+  - Tools: file_info, file_outline, file_info, read_file, read_file_range, update_task, update_task, read_file_range, write_file (6 round(s))
+  - Out: Sign-off accepted. Step 4 is closed. Step 5 was not started. The cap stays off.
+
+**What "sign-off" covered**
+- `cos/TestResults.txt` (19:18:50Z): eleven `PASS` lines and `fails 0` from `protocol/step4_self_test.py`.
+- `search_files` and `list_files`, added beside the existing tools. Recursion off unless asked. `.git` not expanded. Neither replaces `list_dir` or `search_in_file`.
+- Cap is `None`. `patch_file` is not registered.
+
+**Recorded**
+- `tools-4-search` is done, with the sign-off note.
+- `tools-5-patch` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 4 is signed off and step 5 is not started.
+
+**Not done**
+- No `cos/cos.py` change. No patch.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+Step 5 still needs its own instru...
+
+## 2026-10-23T19:21:01.641898+00:00
+- Dialog:
+  - In: let's push the changes
+  - Tools: git, git (2 round(s))
+  - Out: Not pushed. This directive does not contain the exact phrase `approve git push`, and there is nothing to push until a commit lands. HEAD and `origin/main` are both at `dba1091`. Nothing was staged, committed, or pushed.
+
+**Would commit, if you say so**
+- `cos/cos.py` — `search_files` and `list_files`; cap still off
+- `cos/tasks.md` — step 4 signed off, step 5 eligible
+- `specs/cos-tools-plan.md` — plan matches that sign-off
+- `cos/context.md` and `cos/event_log.jsonl` — session record
+
+**Would leave untracked**
+Scratch and one-shot scripts, including `protocol/test.txt`, `protocol/overflow_test.py`, `protocol/step2_self_test.py`, `protocol/step3_self_test.py`, `protocol/_fix_search_ctx.py`, `cos/file_info.py`, plus the other `protocol/_step*` / `protocol/_cos_parts/` files and `cos/TestResults.txt`.
+
+**To do it**
+One directive that contains both exact phrases:
+
+`approve git commit and...

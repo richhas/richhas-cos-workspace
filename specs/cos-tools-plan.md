@@ -1,19 +1,20 @@
 # COS Tools — Initial Implementation Plan
 
-**Status:** steps 1–3 done and signed off; steps 4–6 not started
+**Status:** steps 1–4 done and signed off; steps 5–6 not started
 **Booked:** 2026-10-22, by the explicit directive "Book this initial plan"
 **Step 1 done:** 2026-10-22, by "do step 1". User signed off the same day: v1.2 matched the review.
 **Plan updated:** 2026-10-22, by the explicit directive "Update the spec files and plan"
 **v1.3 sign-off:** 2026-10-22, by the explicit directive "I approve". Does not start step 2.
 **Step 2 done:** 2026-10-22, by "do step 2". User signed off the same day: "I sign off step 2". Script passed (`fails 0`). Does not start step 3.
 **Step 3 done:** 2026-10-23, by "do step 3". User signed off the same day: "sign off". Script passed (`fails 0`). Does not start step 4.
+**Step 4 done:** 2026-10-23, by "do step 4". User signed off the same day: "sign-off". Script passed (`fails 0`). Does not start step 5.
 **Parent spec:** specs/cos-tools.md v1.3 (v1.2 and v1.3 signed off; v1.3 sign-off does not start step 2)
 **Related:** specs/claude-api-proposal.md (proposal only; client not built)
-**Does not authorize:** editing cos/cos.py for a new slice, implementing step 4, calling Claude, restoring the tool-result cap, or git commit/push
+**Does not authorize:** editing cos/cos.py for a new slice, implementing step 5, calling Claude, restoring the tool-result cap, or git commit/push
 
 This file records the ordered plan so progress can be made one step at a time. Booking it was not approval to start a step. Updating it is not approval to start a step. Signing off a finished step does not start the next one. Each step needs its own explicit instruction that names that step. Ask-first still holds.
 
-This update records the step 3 sign-off. It does not start step 4. It does not restore the tool-result cap.
+This update records the step 4 sign-off. It does not start step 5. It does not restore the tool-result cap.
 
 ## Rules for every step
 
@@ -25,7 +26,7 @@ This update records the step 3 sign-off. It does not start step 4. It does not r
 - Do not weaken ask-first, the git approval phrases, or META-COS §2.
 - No general shell, no unattended commit or push, no key handling, no paths outside the workspace.
 - **Existing tools first.** `list_dir`, `read_file`, `write_file`, `update_task`, bounded `git`, and `handoff` stay registered under those names and gates. A slice may add tools beside them. It may not remove, rename, unregister, or replace them. Full-file `read_file` and `write_file` stay. The tool loop, deep context, event log, manual commands, and console wrap stay. A failure in a new tool must not take the six down. Detail is `specs/cos-tools.md` §2.3.
-- **Cap stays off.** `TOOL_RESULT_CHAR_LIMIT` is `None` until the partial IO tools are in place and the user has verified that. Step 3 sign-off is not that restore. Do not turn the 12,000-character cap back on in a later slice unless a later directive says to.
+- **Cap stays off.** `TOOL_RESULT_CHAR_LIMIT` is `None` until the partial IO tools are in place and the user has verified that. Step 4 sign-off is not that restore. Do not turn the 12,000-character cap back on in a later slice unless a later directive says to.
 - Not committed by this update. Commit still needs `approve git commit` in a later directive.
 
 ## Step 1 — Correct the spec
@@ -67,13 +68,7 @@ Added the 12,000-character tool-result cap, `file_info`, and `file_outline` in `
 
 **Cap, as signed off:** `TOOL_RESULT_CHAR_LIMIT` was 12,000. A truncated result said `TRUNCATED` and how many characters were omitted. The file on disk was unchanged. Full-file `read_file` stayed.
 
-**Later, not a reopen of step 2:** the user ordered the cap off so step 3 could be written, then ordered it to stay off until partial IO is in place and verified with them. Step 3 sign-off does not restore it. Current value is `None`.
-
-**Verify:** met. `python protocol/step2_self_test.py` printed thirteen `PASS` lines and `fails 0`. That covered the tool list, the cap, truncation, an unchanged short result, `file_info` size/sha256/mtime, markdown headings, JSON keys, Python names, path escape, `read_file`, and the read cap. The user signed off the same day.
-
-**Done when:** met. Those checks passed and the user signed off. Step 3 was not started in that turn.
-
-**Not part of the product:** `protocol/step2_self_test.py` is a hand checklist. Do not stage it. `cos/file_info.py` is an empty leftover. The live functions are in `cos/cos.py`.
+**Later, not a reopen of step 2:** the user ordered the cap off so step 3 could be written, then ordered it to stay off until partial IO is in place and verified with them. Step 4 sign-off does not restore it. Current value is `None`.
 
 ## Step 3 — Partial reads
 
@@ -86,7 +81,7 @@ Added `read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file
 
 - The six live tools stay, same names, same gates.
 - Full-file `read_file` and `write_file` still work. `file_info` and `file_outline` stay.
-- `search_files` is not registered. No patch, no shell, no Claude client in this step.
+- `search_files` is not registered in this step. No patch, no shell, no Claude client in this step.
 - `TOOL_RESULT_CHAR_LIMIT` stayed `None`. The 12,000 cap was not restored.
 
 **Verify:** met. `python protocol/step3_self_test.py` printed eighteen `PASS` lines and `fails 0`, recorded in `cos/TestResults.txt`. That covered the tool list, cap off, no `search_files`, range header and body, head, tail, out-of-range, inverted range, path escape, search hit and miss, and full `read_file`. The user signed off the same day.
@@ -98,27 +93,36 @@ Added `read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file
 ## Step 4 — Search across files
 
 **Task id:** `tools-4-search`
-**Status:** eligible, not started. Needs its own instruction. The step 3 sign-off is not that instruction.
-**Was blocked on:** step 3 sign-off. That block is lifted. The no-loss rule still applies.
+**Status:** done. Signed off 2026-10-23 by "sign-off". This update does not reopen it and does not start step 5.
 
-Add `search_files` and `list_files` (simple glob, recursion off unless asked). In-workspace only. These do not replace `list_dir`. `.git` stays unexpanded.
+Added `search_files` and `list_files` (simple glob, recursion off unless asked). In-workspace only. These do not replace `list_dir`. `.git` stays unexpanded.
 
-These are additions. The six live tools stay. `file_info`, `file_outline`, and the four partial reads stay. No patch, no shell, no Claude client in this step. Do not restore the 12,000-character cap in this step.
+These are additions. The six live tools stay. `file_info`, `file_outline`, and the four partial reads stay. No patch, no shell, no Claude client in this step. The 12,000-character cap was not restored.
 
-**Verify:** a search hits a known string in `specs/` and misses a string that is not there; glob `*.json` under `protocol/` returns the protocol file and does not leave the workspace; `.git` is not expanded; `list_dir` still works; `search_in_file` still searches one file only.
+**No loss (held):**
 
-**Done when:** those checks pass and you sign off. Do not start step 5 in the same turn.
+- The six live tools stay, same names, same gates.
+- `search_in_file` still searches one file only. `list_dir` still works.
+- `patch_file` is not registered.
+- `TOOL_RESULT_CHAR_LIMIT` stayed `None`.
+
+**Verify:** met. `python protocol/step4_self_test.py` printed eleven `PASS` lines and `fails 0`, recorded in `cos/TestResults.txt` (19:18:50Z). That covered the tool list through `search_files` and `list_files`, cap off, no `patch_file`, a known search hit and a miss, `*.json` under `protocol/` staying in the workspace, `.git` not expanded, `list_dir`, `search_in_file` still one file, and path escape. The user signed off the same day.
+
+**Done when:** met. Those checks passed and the user signed off. Step 5 was not started in that turn.
+
+**Not part of the product. Do not stage:** `protocol/step4_self_test.py` and `protocol/_step4_insert.py`.
 
 ## Step 5 — One-file patch
 
 **Task id:** `tools-5-patch`
-**Blocked on:** step 4 sign-off.
+**Status:** eligible, not started. Needs its own instruction. The step 4 sign-off is not that instruction.
+**Was blocked on:** step 4 sign-off. That block is lifted. The no-loss rule still applies.
 
 Add `patch_file` with literal search/replace. If `replace_all` is false and the search occurs any number other than 1, return an error and do not write. Return a short diff summary. Do not add `apply_patches`, `replace_range`, or multi-file writes in this step. Do not replace `write_file`.
 
 **Verify:** a unique literal patch on a scratch file succeeds and the diff matches the change; a non-unique search does not write; a missing search does not write; `write_file` still replaces a file; `cos/tasks.md` remains updatable only via `update_task`.
 
-**Done when:** those checks pass and you sign off. `cos/tasks.md` remains updatable only via `update_task`.
+**Done when:** those checks pass and you sign off. Do not start step 6 in the same turn.
 
 ## Step 6 — Sign-off gate for anything further
 
@@ -137,7 +141,7 @@ Still not started, and not implied by finishing step 5:
 - Restoring the 12,000-character tool-result cap. Separate instruction, and only after the user verifies partial IO.
 - System-prompt paragraph in `specs/cos-tools.md` §4. Add it only when the tools it names actually exist, and only under an explicit instruction.
 
-**Done when:** this gate is written into the task list as the end of the first wave, and you sign off. The next slice still needs its own instruction. The six live tools are still present. `file_info`, `file_outline`, and the four partial reads stay.
+**Done when:** this gate is written into the task list as the end of the first wave, and you sign off. The next slice still needs its own instruction. The six live tools are still present. `file_info`, `file_outline`, the four partial reads, `search_files`, and `list_files` stay.
 
 ## What the v1.3 update did not do
 
@@ -165,8 +169,16 @@ Still not started, and not implied by finishing step 5:
 
 ## What the step 3 sign-off does not do
 
-- Does not start step 4. `tools-4-search` stays open and not doing.
+- Does not start step 4. That step was started later by its own instruction, "do step 4".
 - Does not add `search_files`, `list_files`, or `patch_file`.
+- Does not edit `cos/cos.py`.
+- Does not restore the 12,000-character tool-result cap. Cap stays `None` until a later directive says otherwise, and only after the user verifies partial IO.
+- Does not commit or push. That still needs `approve git commit` or `approve git push` in a later directive.
+
+## What the step 4 sign-off does not do
+
+- Does not start step 5. `tools-5-patch` stays open and not doing.
+- Does not add `patch_file`.
 - Does not edit `cos/cos.py`.
 - Does not restore the 12,000-character tool-result cap. Cap stays `None` until a later directive says otherwise, and only after the user verifies partial IO.
 - Does not commit or push. That still needs `approve git commit` or `approve git push` in a later directive.
