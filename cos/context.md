@@ -1573,3 +1573,478 @@ A sign-off is a separate instruction, for example “I sign off step 2”. That 
 - No commit. That needs `approve git commit` in a later directive.
 
 Step 3 still needs its own instruction, for example "do step 3".
+
+## 2026-10-22T14:39:28.726878+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/context.md cos/cos.py cos/event_log.jsonl cos/tasks.md specs/claude-api-proposal.md specs/cos-tools-plan.md specs/cos-tools.md
+exit 0
+
+## 2026-10-22T14:39:29.813931+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record tool-result cap, file_info, and tool specs
+exit 0
+[main 2cbaf14] Record tool-result cap, file_info, and tool specs
+ 7 files changed, 2187 insertions(+), 14 deletions(-)
+ create mode 100644 specs/claude-api-proposal.md
+ create mode 100644 specs/cos-tools-plan.md
+ create mode 100644 specs/cos-tools.md
+
+## 2026-10-22T14:39:32.300015+00:00
+- Dialog:
+  - In: approve git commit
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Committed once. Did not push.
+
+**Commit:** `2cbaf14` — Record tool-result cap, file_info, and tool specs.
+
+**Staged:** `cos/cos.py`, `cos/context.md`, `cos/event_log.jsonl`, `cos/tasks.md`, `specs/claude-api-proposal.md`, `specs/cos-tools-plan.md`, `specs/cos-tools.md`.
+
+**Left untracked:** `protocol/test.txt`, `protocol/overflow_test.py`, `protocol/step2_self_test.py`, `cos/file_info.py`, and `cos/__pycache__/`.
+
+**Branch:** `main` is 1 commit ahead of `origin/main` (`dfcd079`).
+
+**Still dirty:** `cos/context.md` and `cos/event_log.jsonl`. Logging rewrites them after every git action, so that residual is expected.
+
+**Not done:** this directive contained `approve git commit` only. Push needs a new directive with the exact phrase `approve git push`.
+
+## 2026-10-22T14:40:09.354749+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   dfcd079..2cbaf14  main -> main
+
+## 2026-10-22T14:40:09.354749+00:00
+- Dialog:
+  - In: approve git push
+  - Tools: git, git, git (2 round(s))
+  - Out: Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-22T14:41:42.156959+00:00
+- Task: `tools-3-read` doing — Add partial reads: range, head, tail, search_in_file
+- Note: User said do step 3. Adding partial reads only. No cross-file search, no patch.
+
+## 2026-10-22T14:41:47.220270+00:00
+- File change: wrote `protocol/extract_cos_sections.py` (1068 bytes)
+
+## 2026-10-22T14:41:47.235862+00:00
+- Task: `tools-3-read` doing — Add partial reads: range, head, tail, search_in_file
+- Note: Blocked this turn: read_file truncates cos/cos.py at 12000 chars and partial reads are not live. Wrote protocol/extract_cos_sections.py. Did not rewrite cos/cos.py. Not signed off. Does not start s...
+
+## 2026-10-22T14:41:51.276849+00:00
+- Dialog:
+  - In: do step 3
+  - Tools: file_outline, file_outline, file_info, file_outline, read_file, read_file, read_file, read_file, file_info, list_dir, read_file, read_file, file_info, file_outline, update_task, write_file, update_task (8 round(s))
+  - Out: Step 3 is not written. I stopped rather than replace `cos/cos.py` from a truncated read.
+
+**Why**
+- `cos/cos.py` is 103,803 bytes and 2,808 lines. `read_file` returns only the first 12,000 characters and says the rest was omitted.
+- Partial reads are the tools this step is supposed to add. They are not live in this process, so I cannot ask for lines 1000–1300.
+- Rewriting the file from the truncated head would drop the tool loop, git gate, and the six live tools. That violates the no-loss rule.
+
+**Changed**
+- `protocol/extract_cos_sections.py` (1,068 bytes). A one-shot splitter. Not a COS tool. Do not stage it.
+- `tools-3-read` stays `doing`. Not signed off. Step 4 was not started.
+
+**Not changed**
+- `cos/cos.py`. No `read_file_range`, `read_file_head`, `read_file_tail`, or `search_in_file`.
+- No commit.
+
+**To continue, in order**
+1. From the workspace root, run:
+```
+python protocol/e...
+
+## 2026-10-22T14:43:07.426832+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-22T14:44:32.489909+00:00
+- File change: wrote `protocol/assemble_cos_step3.py` (20330 bytes)
+
+## 2026-10-22T14:44:32.505502+00:00
+- File change: wrote `protocol/step3_self_test.py` (4070 bytes)
+
+## 2026-10-22T14:44:53.315847+00:00
+- File change: wrote `protocol/_step3_new.py` (6995 bytes)
+
+## 2026-10-22T14:44:53.328604+00:00
+- File change: wrote `protocol/_step3_schemas.py` (4215 bytes)
+
+## 2026-10-22T14:44:53.367635+00:00
+- File change: wrote `protocol/_step3_exec.py` (2178 bytes)
+
+## 2026-10-22T14:45:04.325535+00:00
+- Dialog:
+  - In: do step 3
+  - Tools: list_dir, file_outline, file_outline, file_info, file_outline, list_dir, read_file, read_file, read_file, read_file, read_file, file_outline, file_outline, file_outline, read_file, read_file, read_file, read_file, file_outline, file_outline, file_outline, read_file, read_file, read_file, read_file, read_file, read_file, write_file, write_file, read_file, write_file, write_file, write_file (10 round(s))
+  - Out: Step 3 is not in `cos/cos.py`. I stopped before a full-file rewrite. The new reads are not live, and step 4 was not started.
+
+**Why.** `cos/cos.py` is 103,803 bytes. A full `read_file` is capped at 12,000 characters, and this process still has no partial reads. The split parts in `protocol/_cos_parts/` were enough to locate the insertion points, but not enough to assemble and verify the file inside this turn.
+
+**Written, not part of the product. Do not stage these.**
+- `protocol/assemble_cos_step3.py` — joins the 12 parts and inserts the four tools.
+- `protocol/_step3_new.py`, `protocol/_step3_schemas.py`, `protocol/_step3_exec.py` — the functions, schemas, and dispatch branches.
+- `protocol/step3_self_test.py` — the hand check.
+
+**Not changed.** `cos/cos.py`. No `read_file_range`, `read_file_head`, `read_file_tail`, or `search_in_file`. The six live tools are untouched. `tools-3-read...
+
+## 2026-10-22T14:47:36.677479+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-22T14:49:12.661466+00:00
+- Dialog failed:
+  - In: python protocol/assemble_cos_step3.py returned "step2 comment: expected 1 match, found 0"
+  - Tools so far: read_file, file_info, file_outline, list_dir, read_file, read_file, file_outline, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file
+  - Error: HTTPSConnectionPool(host='api.x.ai', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac (_ssl.c:2536)')))
+
+## 2026-10-22T14:49:59.571830+00:00
+- Dialog:
+  - In: See the returned SSLError
+  - Tools: (none) (1 round(s))
+  - Out: The SSL error was a transport failure, not a logic bug. The previous turn died before it could answer the assemble-script mismatch. Nothing was written.
+
+**What failed**
+At 14:49:12Z the COS called `https://api.x.ai/v1/chat/completions`. TLS aborted with `SSLV3_ALERT_BAD_RECORD_MAC` (`_ssl.c:2536`). `requests` retried, then raised `Max retries exceeded`. That alert means a TLS record failed its MAC check: a corrupted or reset packet, often transient. Typical causes are a flaky link, HTTPS inspection, or a proxy. It is not a bad key, a rejected prompt, or a defect in `cos/cos.py`.
+
+**What was already done**
+The directive in flight was: `assemble_cos_step3.py` returned `step2 comment: expected 1 match, found 0`. That turn only read files (`file_outline`, `read_file` of the assembler, the self-test, and several `_cos_parts`). No `write_file`, no task update, no git. The final answer neve...
+
+## 2026-10-22T14:52:18.590477+00:00
+- Dialog:
+  - In: Of course... We are stalled
+  - Tools: read_file, file_info, file_outline, read_file, file_info, list_dir, read_file, file_outline, read_file, read_file, file_outline, file_outline, file_outline, read_file, file_info, file_outline, file_outline, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file (10 round(s))
+  - Out: The stall is the assembler, not the SSL error. `cos/cos.py` was not changed.
+
+**What failed.** `python protocol/assemble_cos_step3.py` stopped with `step2 comment: expected 1 match, found 0`. That script only replaces a string it finds exactly once. The joined parts in `protocol/_cos_parts/` do not contain `step2 comment`. The live file says `Step 2` in the module docstring, not that phrase. The script refused to write, which is the correct failure.
+
+**What the SSL error was.** The next API call died with `SSLV3_ALERT_BAD_RECORD_MAC` before it could say that. Transport failure. Nothing was written on that turn either.
+
+**Still true.** `cos/cos.py` is 103,803 bytes, 2,808 lines, unchanged since 14:26:19Z. No `read_file_range`, `read_file_head`, `read_file_tail`, or `search_in_file`. The six live tools plus `file_info` and `file_outline` are intact. `tools-3-read` is still `doing`. Step...
+
+## 2026-10-22T14:54:02.851059+00:00
+- Dialog:
+  - In: It seems to me that the 12000 cap was done too early
+  - Tools: (none) (1 round(s))
+  - Out: The sequencing is the problem. The cap itself is not.
+
+**What is true**
+- Step 2 is signed off. The 12,000-character cap is live in this process. A full `read_file` of `cos/cos.py` (~104 KB, 2,808 lines) returns the head and says `TRUNCATED`. The file on disk is not cut.
+- Step 3 is the set of tools that would make that cap workable: range, head, tail, `search_in_file`. They are not in `cos/cos.py`. `tools-3-read` is still `doing`. Nothing was signed off.
+- Once the process restarted with the cap and without partial reads, a safe in-turn rewrite of `cos/cos.py` became impossible. That is the stall. The SSL error and the assembler mismatch (`step2 comment: expected 1 match, found 0`) were later symptoms, not the cause.
+
+**What I would not do from this statement**
+I will not raise the cap, revert step 2, or patch `cos/cos.py`. Those are signed-off behavior until you name a change.
+
+**If...
+
+## 2026-10-22T14:57:49.910801+00:00
+- Task: `tools-3-read` doing — Add partial reads: range, head, tail, search_in_file
+- Note: Restarting step 3. Temporarily raising the tool-result cap from 12000 to 120000 so the rewrite is possible. Partial reads only. Cap restore is a later instruction.
+
+## 2026-10-22T14:57:49.910801+00:00
+- File change: wrote `protocol/rebuild_cos_step3.py` (24923 bytes)
+
+## 2026-10-22T14:58:28.159510+00:00
+- File change: wrote `protocol/rebuild_cos_step3.py` (24865 bytes)
+
+## 2026-10-22T14:58:32.708366+00:00
+- Dialog:
+  - In: You should start step 3 over but first temp disable the 12000 limit - will put it back later
+  - Tools: list_dir, file_info, file_outline, file_outline, file_outline, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, update_task, write_file, read_file, read_file, read_file, write_file (10 round(s))
+  - Out: Step 3 is restarted, but `cos/cos.py` is not rewritten yet. I cannot run Python from this turn, and a full `read_file` of that file is still cut at 12,000 characters.
+
+**What I did**
+- Confirmed `cos/cos.py` is still the signed-off step 2 file: 103,803 bytes, 2,808 lines, no partial reads.
+- Wrote `protocol/rebuild_cos_step3.py`. It joins the 12 split parts, raises `TOOL_RESULT_CHAR_LIMIT` from `12_000` to `120_000`, and inserts `read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file`.
+- The six live tools stay. No `search_files`, no `list_files`, no `patch_file`. The script refuses to write unless every anchor matches once and the result compiles.
+- `tools-3-read` stays `doing`. Not signed off. Step 4 was not started.
+
+**Not live until you run it and restart.** From the workspace root:
+
+```
+python protocol/rebuild_cos_step3.py
+```
+
+Pass is one line starting with `w...
+
+## 2026-10-23T18:22:52.753911+00:00
+- File change: wrote `protocol/uncap_tool_results.py` (7658 bytes)
+
+## 2026-10-23T18:22:59.321897+00:00
+- Dialog:
+  - In: We need to remove the cap completly for awhile. You need to remove the limit now.
+  - Tools: file_info, file_outline, file_info, list_dir, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, read_file, write_file (5 round(s))
+  - Out: The cap is not removed yet. This process cannot run Python, and a full rewrite of `cos/cos.py` from here would still be cut at 12,000 characters.
+
+**What I wrote**
+- `protocol/uncap_tool_results.py` (7,658 bytes). It joins the 12 split parts of the signed-off step 2 file, checks they are still 103,803 bytes and 2,808 lines, and sets `TOOL_RESULT_CHAR_LIMIT = None`.
+- `_tool_result_text` returns the full string while that value is `None`. Prompt text that said “capped at 12,000” is updated to say the cap is off.
+- It does not add partial reads, search, or patch. It refuses to write if any anchor is missing or the result does not compile. Do not stage it.
+
+**Run this from the workspace root**
+```
+python protocol/uncap_tool_results.py
+```
+Pass is one line starting with `wrote`. Then restart the COS process. Until that restart, this session still caps results at 12,000.
+
+**Not done**
+- `c...
+
+## 2026-10-23T18:24:33.979993+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T18:25:52.149021+00:00
+- File change: wrote `protocol/uncap_tool_results.py` (7730 bytes)
+
+## 2026-10-23T18:25:55.424186+00:00
+- Dialog:
+  - In: REFUSED: joined size 100995 != 103803
+  - Tools: file_info, file_info, list_dir, file_outline, read_file, read_file, read_file, read_file, file_info, file_info, file_info, file_info, file_info, file_info, file_info, file_info, file_info, file_info, file_info, file_info, write_file (6 round(s))
+  - Out: The refusal was correct. The script was joining a stale snapshot. `cos/cos.py` was not changed.
+
+**What failed.** `protocol/uncap_tool_results.py` joined `protocol/_cos_parts/` and required 103,803 bytes. The join was 100,995. Those 12 parts were written at 14:42:59Z. The live file is the signed-off step 2 copy: 103,803 bytes, 2,808 lines, sha256 `45660c7f…`, mtime 14:26:19Z. The parts are an older cut, not that file. The size check stopped before any write.
+
+**What I changed.** Rewrote `protocol/uncap_tool_results.py` (7,730 bytes). It now edits the live file in place. It refuses unless size, line count, and that sha256 match. It sets `TOOL_RESULT_CHAR_LIMIT = None` and makes `_tool_result_text` return the full string in that mode. It does not add partial reads. If compile fails, it restores the original bytes. Do not stage it.
+
+**Run this from the workspace root, then restart.**
+```...
+
+## 2026-10-23T18:26:53.067425+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T18:28:15.421691+00:00
+- Dialog:
+  - In: REFUSED: cap constant block not found once
+  - Tools: read_file, file_info, file_outline, read_file (3 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**What matched.** The live file is still the signed-off step 2 copy: 103,803 bytes, 2,808 lines, sha256 `45660c7f…`. The script got past that gate. `TOOL_RESULT_CHAR_LIMIT = 12_000` is present once. The three-line block around it is not, so it stopped before any write.
+
+**Why.** That block is searched with LF-only newlines (`\n`). This workspace is Windows. The assignment line matches without a newline check; the block does not. That is `\r\n` between those lines. `read_file` shows the comments correctly because it normalizes. The script reads raw bytes and does not. The same mismatch would hit the later multi-line anchors, so fixing only this one string is not enough.
+
+**Not done.** The cap is still 12,000 in this process. I did not edit `cos/cos.py` or the script.
+
+**If you say "fix the uncap script"** I will rewrite `protocol/...
+
+## 2026-10-23T18:30:57.543892+00:00
+- File change: wrote `protocol/uncap_tool_results.py` (9636 bytes)
+
+## 2026-10-23T18:31:00.659725+00:00
+- Dialog:
+  - In: fix the uncap script
+  - Tools: read_file, file_info, file_outline, read_file, read_file, file_info, list_dir, read_file, read_file, read_file, read_file, write_file (5 round(s))
+  - Out: Fixed `protocol/uncap_tool_results.py`. `cos/cos.py` was not changed.
+
+**Cause.** The live file is still the signed-off step 2 copy: 103,803 bytes, 2,808 lines, sha256 `45660c7f…`. `TOOL_RESULT_CHAR_LIMIT = 12_000` is present once. The three-line block around it was not found because the script searched LF-only (`\n`) text against a Windows CRLF file. `read_file` hides that by normalizing. The script reads raw bytes and did not.
+
+**Change.** The script now normalizes to LF before matching, then writes back with the original newline style. Same gates: size, line count, sha256, one match per phrase, compile, restore on failure. It still only sets the cap to `None`. No partial reads. Do not stage it.
+
+**Run this from the workspace root, then restart.**
+```
+python protocol/uncap_tool_results.py
+```
+Pass is one line starting with `wrote`. Until you restart, this session still caps results ...
+
+## 2026-10-23T18:31:53.615425+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T18:33:25.982992+00:00
+- File change: wrote `protocol/uncap_tool_results.py` (10743 bytes)
+
+## 2026-10-23T18:33:30.959935+00:00
+- Dialog:
+  - In: REFUSED: a 12000 cap phrase remains
+  - Tools: read_file, file_info, file_outline, file_outline, read_file, list_dir, read_file, read_file, read_file, read_file, read_file, read_file, read_file, write_file (7 round(s))
+  - Out: The refusal was correct. `cos/cos.py` was not changed.
+
+**What matched.** The live file is still the signed-off step 2 copy: 103,803 bytes, 2,808 lines, sha256 `45660c7f…`. The seven planned replacements ran. The final scan then found `12,000` still in the file and refused before any write.
+
+**Why.** The leftover was the truncation note inside `_tool_result_text`, not the assignment. That note still said `partial reads are step 3` and was not in the replacement list. The other seven phrases were already rewritten in memory, so the scan was right to stop.
+
+**Change.** Rewrote `protocol/uncap_tool_results.py` (10,743 bytes). The function replacement now includes that note and drops the `12,000` wording. A later refusal will name the leftover phrase. Same gates: size, line count, sha256, one match, compile, restore on failure. No partial reads. Do not stage it.
+
+**Run this from the works...
+
+## 2026-10-23T18:34:30.647881+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T18:35:05.103515+00:00
+- Dialog:
+  - In: wrote C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace\cos\cos.py (103629 bytes, CRLF). cap is None. restart COS. do not stage this script.
+  - Tools: file_info, git (2 round(s))
+  - Out: The uncap landed. This restarted process has the cap off. The script was not staged.
+
+**Confirmed**
+- `cos/cos.py` is 103,629 bytes, 2,809 lines, mtime 18:34:20Z, sha256 `57e3a03e…`. That matches the script line. The previous signed-off copy was 103,803 bytes.
+- This session’s prompt says the tool-result cap is temporarily off, so `read_file` returns the full file.
+- `protocol/uncap_tool_results.py` is untracked. `cos/cos.py` is modified and not staged. Nothing was added, committed, or pushed.
+
+**Not done**
+- Partial reads are still absent. `tools-3-read` stays `doing`. Step 4 was not started.
+- The 12,000 cap is off until you say to put it back. That restore is a later instruction.
+
+**If you say "do step 3"**
+I can now read the full `cos/cos.py` and add `read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file` only. The six live tools stay. No search across files, n...
+
+## 2026-10-23T18:36:24.203979+00:00
+- Dialog:
+  - In: Do not turn the cap back on the we have all of the partial IO tools in place and then verify with me.
+  - Tools: (none) (1 round(s))
+  - Out: Understood. The cap stays off. I did not change any files, and I did not start step 3.
+
+**Locked until you say otherwise**
+- Do not restore the 12,000-character tool-result cap.
+- Not when partial reads land, and not as part of writing them.
+- Restore only after the partial IO tools are in place and you have verified that with me.
+
+**What “partial IO” means here**
+`read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file`. Not cross-file search, not `patch_file`, not the later slices.
+
+**Still true**
+The cap is off in this process. Those four tools are not in `cos/cos.py` yet. `tools-3-read` stays `doing` and is not signed off.
+
+Say “do step 3” when you want those four tools added. That still will not turn the cap back on.
+
+## 2026-10-23T18:36:49.258270+00:00
+- Task: `tools-3-read` doing — Add partial reads: range, head, tail, search_in_file
+- Note: User said do step 3. Adding range, head, tail, and search_in_file only. Cap stays off until partial IO is verified.
+
+## 2026-10-23T18:39:32.570840+00:00
+- File change: wrote `cos/cos.py` (116010 bytes)
+
+## 2026-10-23T18:39:43.855209+00:00
+- File change: wrote `protocol/_fix_search_ctx.py` (3439 bytes)
+
+## 2026-10-23T18:42:17.622123+00:00
+- File change: wrote `cos/cos.py` (115984 bytes)
+
+## 2026-10-23T18:42:28.238720+00:00
+- File change: wrote `protocol/step3_self_test.py` (3375 bytes)
+
+## 2026-10-23T18:42:33.304509+00:00
+- Task: `tools-3-read` doing — Add partial reads: range, head, tail, search_in_file
+- Note: Wrote partial reads in cos/cos.py. Cap stays None. Not live until restart. Awaiting script pass and sign-off. Does not start step 4.
+
+## 2026-10-23T18:42:52.456476+00:00
+- Dialog:
+  - In: do step 3
+  - Tools: update_task, file_outline, file_outline, file_info, read_file, read_file, read_file, write_file, read_file, write_file, write_file, write_file, file_outline, file_info, read_file, update_task (10 round(s))
+  - Out: Step 3 is written. It is not live until you restart, and it is not signed off. The cap stays off. Step 4 was not started.
+
+**Changed**
+- `cos/cos.py` (119,188 bytes, 3,204 lines, sha256 `ca7f6e5d…`). Added beside the existing tools: `read_file_range`, `read_file_head`, `read_file_tail`, `search_in_file`.
+- `TOOL_RESULT_CHAR_LIMIT` is still `None`. The 12,000 cap was not restored.
+- `protocol/step3_self_test.py` is a hand check. Do not stage it.
+
+**What the four tools do**
+- Range is inclusive and 1-based, and returns `lines X-Y of Z`. An out-of-range, inverted, or over-400-line request errors. It does not return the whole file.
+- Head and tail default to 40 lines, max 400.
+- `search_in_file` is a literal search in one file, with context. It is not `search_files`.
+- The six live tools stay, plus `file_info` and `file_outline`. Full `read_file` stays. No cross-file search, no patch, no ...
+
+## 2026-10-23T18:47:11.128618+00:00
+- Session start: COS started. Full META-COS.md loaded into the system prompt. Ask-first policy loads from cos/prompts/ask-first.md. Commands listed. Deep persistent context is active. Open tasks load from cos/tasks.md.
+
+## 2026-10-23T18:48:02.011790+00:00
+- Dialog:
+  - In: How do I paste multiple lines into you as one round?
+  - Tools: search_in_file, search_in_file, file_outline, read_file_range, search_in_file, search_in_file, search_in_file (4 round(s))
+  - Out: You cannot. A normal directive is one `input()` line. A paste that contains newlines is several turns, not one.
+
+**What the REPL does**
+- At `You:`, `cos/cos.py` reads a single line and sends that string to Grok.
+- There is no multi-line directive mode, no `sys.argv` directive, and no stdin directive.
+- The only multi-line input is `write: <path>`. It keeps reading until a line that is only `.`, then writes the file. That does not start a Grok turn.
+
+**What works now**
+- Keep the directive on one line and paste that.
+- If the body must have line breaks, put it in a file with `write:`, end with `.`, then send a one-line directive that names that file.
+
+A paste of several lines will run the first line as this turn. The rest stay in the console buffer and become later turns. Do not paste a multi-line block at `You:`.
+
+A real multi-line directive mode is not built. Say if you want that pr...
+
+## 2026-10-23T18:51:14.080185+00:00
+- Dialog:
+  - In: read cos\TestResults.txt for the results of the protocol/step3_self_test.py
+  - Tools: file_info, read_file (3 round(s))
+  - Out: The step 3 script passed. That is a pass, not a sign-off. I did not change any files.
+
+**Result:** `cos/TestResults.txt` (687 bytes, 19 lines, 18:49:42Z) ends with `fails 0`. Every named check says `PASS`.
+
+**What passed**
+- Tools, in order: the six live tools, then `file_info`, `file_outline`, `read_file_range`, `read_file_head`, `read_file_tail`, `search_in_file`.
+- Cap is `None`. It was not turned back on.
+- `search_files` is not registered.
+- Range `1-3` of `specs/META-COS.md` is `lines 1-3 of 247`, includes those lines, and is not the whole file.
+- Head `n=2` is `lines 1-2 of 247`. Tail header and body passed.
+- A 10,000-line range errors and does not return the file. An inverted range errors. A path outside the workspace errors.
+- `search_in_file` hits and misses. Full `read_file` still works.
+
+**Not done**
+- `tools-3-read` stays `doing` until you sign off. Step 4 stays blocked....
+
+## 2026-10-23T18:51:58.731626+00:00
+- Task: `tools-3-read` done — Add partial reads: range, head, tail, search_in_file
+- Note: User signed off 2026-10-23: "sign off". Script passed (fails 0). Cap stays off. Does not start step 4.
+
+## 2026-10-23T18:51:58.762139+00:00
+- Task: `tools-4-search` open — Add in-workspace search_files and list_files
+- Note: Step 3 signed off. Eligible, not started. Needs its own instruction. No patch in this step. Cap stays off.
+
+## 2026-10-23T18:52:18.529065+00:00
+- File change: wrote `specs/cos-tools-plan.md` (12533 bytes)
+
+## 2026-10-23T18:52:21.775767+00:00
+- Dialog:
+  - In: sign off
+  - Tools: file_info, file_outline, file_info, read_file, read_file_range, update_task, update_task, write_file (5 round(s))
+  - Out: Sign-off accepted. Step 3 is closed. Step 4 was not started. The cap stays off.
+
+**What "sign off" covered**
+- `cos/TestResults.txt`: eighteen `PASS` lines and `fails 0` from `protocol/step3_self_test.py`.
+- `read_file_range`, `read_file_head`, `read_file_tail`, and `search_in_file`, added beside the existing tools.
+- Cap is `None`. It was not turned back on.
+
+**Recorded**
+- `tools-3-read` is done, with the sign-off note.
+- `tools-4-search` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 3 is signed off and step 4 is not started.
+
+**Not done**
+- No `cos/cos.py` change. No cross-file search, no patch.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+Step 4 still needs its own instruction, for example "do step 4".
+
+## 2026-10-23T18:53:24.543859+00:00
+- Dialog:
+  - In: Do you have the ability to remove these temporary files you keep creating?
+  - Tools: (none) (1 round(s))
+  - Out: No. I cannot remove files.
+
+There is no delete tool. `write_file` can only replace a file, including emptying it to 0 bytes, which still leaves the path on disk. Git has no `rm`, `clean`, or `reset`. There is no shell.
+
+Emptying them is not removal. That is what left the earlier scratch files sitting untracked.
+
+If you want them gone, delete them yourself outside this process. A bounded delete tool would be a separate instruction, and this question does not start that.
+
+## 2026-10-23T18:54:53.229863+00:00
+- Dialog:
+  - In: I think it's time to save our changes thus far
+  - Tools: git, git (2 round(s))
+  - Out: Not saved. This is a statement, not a commit instruction. HEAD and `origin/main` are both at `2cbaf14`. Nothing was staged, committed, or pushed.
+
+**Would commit, if you say so**
+- `cos/cos.py` — partial reads, cap still off
+- `cos/tasks.md` — step 3 signed off, step 4 eligible
+- `specs/cos-tools-plan.md` — plan matches that sign-off
+- `cos/context.md` and `cos/event_log.jsonl` — session record
+
+**Would leave untracked**
+Scratch and one-shot scripts: `protocol/test.txt`, `protocol/overflow_test.py`, `protocol/step2_self_test.py`, `protocol/step3_self_test.py`, `protocol/_fix_search_ctx.py`, `protocol/uncap_tool_results.py`, `protocol/assemble_cos_step3.py`, `protocol/rebuild_cos_step3.py`, `protocol/extract_cos_sections.py`, `protocol/_step3_*.py`, `protocol/_cos_parts/`, `cos/file_info.py`, `cos/TestResults.txt`, `cos/__pycache__/`.
+
+**To do it**
+One directive with the exact phrase `...

@@ -8,7 +8,8 @@ Each Grok call is prefixed with up to 1_000_000 bytes of deep context
 from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 10 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
-file_info, file_outline. No shell. No search. No patch.
+file_info, file_outline, read_file_range, read_file_head, read_file_tail,
+search_in_file. No shell. No cross-file search. No patch.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
@@ -20,10 +21,10 @@ A successful push ends the tool loop. Logging rewrites context and the event
 log, so chasing a clean tree after push never converges inside one turn.
 If the round cap is hit, one extra no-tools call produces the final answer.
 
-Step 2 (specs/cos-tools-plan.md): tool results returned to the model are
-capped at 12,000 characters. A truncated result says so and names the
-omitted count. The file on disk is unchanged. file_info and file_outline
-are additive. They do not replace read_file or write_file.
+Tool-result character cap stays off until partial IO is in place and the
+user verifies that. TOOL_RESULT_CHAR_LIMIT is None. Full tool text is
+returned to the model. Do not restore the cap in this step.
+Partial reads are additive. They do not replace read_file or write_file.
 """
 
 import hashlib
@@ -57,9 +58,11 @@ MAX_ENTRY_CHARS = 4000
 # are executed before the next call. Stop at a final answer or this cap.
 # The cap does not include the one no-tools summary call used when it is hit.
 MAX_TOOL_ROUNDS = 10
-# Step 2. Text returned to the model, not a limit on the file on disk.
-# A truncated result must say it was truncated and how much was omitted.
-TOOL_RESULT_CHAR_LIMIT = 12_000
+# Tool-result character cap stays off (user 2026-10-23).
+# None means _tool_result_text returns the full string.
+# Do not restore until partial IO is in place and the user verifies that.
+# Step 3 adds partial reads beside full read_file. It does not turn the cap on.
+TOOL_RESULT_CHAR_LIMIT = None
 
 # file_outline bounds. These limit outline work, not the tool-result cap.
 OUTLINE_MAX_BYTES = 2_000_000
@@ -67,6 +70,14 @@ OUTLINE_MAX_LINES = 8_000
 OUTLINE_MAX_ITEMS = 200
 EDGE_LINES = 8
 EDGE_CHARS = 120
+
+# Partial reads. Bounds are on the request, not a replacement for read_file.
+# An over-wide range errors. It does not fall back to the whole file.
+PARTIAL_READ_MAX_LINES = 400
+PARTIAL_READ_DEFAULT_N = 40
+SEARCH_IN_FILE_MAX_MATCHES = 50
+SEARCH_IN_FILE_MAX_CONTEXT = 5
+SEARCH_IN_FILE_MAX_PATTERN = 200
 
 # Directory listing is bounded, workspace-scoped, and does not follow symlinks.
 LIST_DIR_MAX_ENTRIES = 400
@@ -134,13 +145,20 @@ AGENT_SYSTEM_EXTRA = (
     "Ask-first is locked (cos/prompts/ask-first.md). "
     "If the current directive is a question, statement, or observation, "
     "do not call write_file, update_task, handoff, or git add/commit/push. "
-    "You may call list_dir, read_file, file_info, and file_outline only when a read is required to answer. "
+    "You may call list_dir, read_file, file_info, file_outline, "
+    "read_file_range, read_file_head, read_file_tail, and search_in_file "
+    "only when a read is required to answer. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
-    "handoff(task), file_info(path), file_outline(path). "
-    "file_info and file_outline are additive. They do not replace read_file or write_file. "
-    "Prefer file_info or file_outline before a full read of a large file. "
+    "handoff(task), file_info(path), file_outline(path), "
+    "read_file_range(path, start_line, end_line), read_file_head(path, n), "
+    "read_file_tail(path, n), search_in_file(path, pattern, context_lines). "
+    "file_info, file_outline, and the partial reads are additive. "
+    "They do not replace read_file or write_file. "
+    "Prefer file_info, file_outline, or a partial read before a full read of a large file. "
+    "read_file_range is inclusive and 1-based. An out-of-range request errors; it does not return the whole file. "
+    "search_in_file searches one file only. It is not search_files. "
     "Use list_dir first when you need to see what files exist; do not guess paths. "
     "list_dir path is workspace-relative; pass '.' for the workspace root. "
     "It returns workspace-relative paths you can pass to read_file. "
@@ -162,13 +180,14 @@ AGENT_SYSTEM_EXTRA = (
     "Logging rewrites cos/context.md and cos/event_log.jsonl after every git action, "
     "so a clean tree after push is impossible inside the same turn. "
     "Leave that residual dirty state for the next directive. "
-    "Do not stage protocol/test.txt, protocol/overflow_test.py, protocol/step2_self_test.py, or cos/file_info.py. "
+    "Do not stage protocol/test.txt, protocol/overflow_test.py, protocol/step2_self_test.py, "
+    "protocol/step3_self_test.py, protocol/_fix_search_ctx.py, or cos/file_info.py. "
     "You may call tools across multiple rounds; results are returned to you in this turn. "
     "The tool loop is capped at 10 rounds. Prefer a final answer before the cap. "
-    "Tool results returned to you are capped at 12,000 characters. "
-    "A truncated result says TRUNCATED and how many characters were omitted. "
-    "Do not treat a truncated read as the whole file. "
-    "Until partial reads exist, use file_info or file_outline, or read a smaller file. "
+    "The tool-result character cap stays off until partial IO is verified with the user. "
+    "Do not restore the 12,000-character cap in this step. "
+    "read_file returns the full file. "
+    "A result that still says TRUNCATED is not the whole text. "
     "Do not claim you cannot read or list local files. "
     "Do not emit manual CLI lines (list:, read:, write:, improve:, handoff:, tasks); "
     "those are user commands, not your interface. "
@@ -211,10 +230,11 @@ TOOLS = [
             "description": (
                 "Read a UTF-8 text file from the COS workspace by relative path. "
                 "Path must stay inside the workspace (example: cos/cos.py, specs/META-COS.md). "
-                "Full file on disk. The text returned to the model is capped at 12,000 characters. "
-                "A truncated result says so and how many characters were omitted. "
-                "Do not treat a truncated read as the whole file. "
-                "Prefer file_info or file_outline for a large file."
+                "Full file on disk. The tool-result character cap stays off until partial IO "
+                "is verified, so the text returned is the full file. "
+                "If a result still says TRUNCATED, it is not the whole file. "
+                "Prefer file_info, file_outline, or a partial read for a large file. "
+                "Partial reads do not replace this tool."
             ),
             "parameters": {
                 "type": "object",
@@ -396,6 +416,117 @@ TOOLS = [
                     }
                 },
                 "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file_range",
+            "description": (
+                "Read an inclusive 1-based line range from one workspace text file. "
+                "Returns those lines plus 'lines X-Y of Z'. "
+                "Does not return the whole file. An out-of-range or inverted range errors. "
+                "A range wider than 400 lines errors. Path must stay inside the workspace. "
+                "Does not replace read_file. Not search_files. Not patch_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "First line to return. 1-based. Inclusive.",
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "Last line to return. 1-based. Inclusive.",
+                    },
+                },
+                "required": ["path", "start_line", "end_line"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file_head",
+            "description": (
+                "Read the first n lines of one workspace text file. Default n is 40. "
+                "Max n is 400. Returns those lines plus 'lines X-Y of Z'. "
+                "Does not replace read_file. Path must stay inside the workspace."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    },
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of lines from the start. Default 40. Max 400.",
+                    },
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file_tail",
+            "description": (
+                "Read the last n lines of one workspace text file. Default n is 40. "
+                "Max n is 400. Returns those lines plus 'lines X-Y of Z'. "
+                "Does not replace read_file. Path must stay inside the workspace."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    },
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of lines from the end. Default 40. Max 400.",
+                    },
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_in_file",
+            "description": (
+                "Search one workspace text file for a literal pattern. "
+                "Returns matching lines with context_lines of context (default 2, max 5). "
+                "Does not search other files. Does not use regex. "
+                "Path must stay inside the workspace. Does not replace read_file."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path.",
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": "Literal text to find. Not a regex. Max 200 characters.",
+                    },
+                    "context_lines": {
+                        "type": "integer",
+                        "description": "Lines of context before and after each match. Default 2. Max 5.",
+                    },
+                },
+                "required": ["path", "pattern"],
             },
         },
     },
@@ -770,7 +901,7 @@ def wrap_text(text: str, width: int = None) -> str:
     if width > CONSOLE_WIDTH_MAX:
         width = CONSOLE_WIDTH_MAX
     lines = []
-    for line in text.split("\n"):
+    for line in text.splitlines():
         lines.extend(_wrap_line(line, width))
     return "\n".join(lines)
 
@@ -811,7 +942,7 @@ def overflow_self_test(widths=None) -> str:
         for name, sample in samples.items():
             wrapped = wrap_text(sample, width)
             checked += 1
-            for i, line in enumerate(wrapped.split("\n"), 1):
+            for i, line in enumerate(wrapped.splitlines(), 1):
                 vis = _display_width(line)
                 if vis > width:
                     fails.append(f"{name}@{width} line {i} vis={vis}")
@@ -1227,7 +1358,8 @@ def file_outline(rel_path: str) -> str:
         header.append("kind: skipped")
         header.append(
             f"file is {size} bytes; outline skipped above {OUTLINE_MAX_BYTES} bytes. "
-            "Use file_info. Full read_file still works, subject to the tool-result cap."
+            "Use file_info or a partial read. Full read_file still works. "
+            "The tool-result cap stays off until partial IO is verified."
         )
         log_event("file_outline", f"Outline skipped {raw}", detail={"path": raw, "bytes": size})
         return "\n".join(header)
@@ -1268,6 +1400,210 @@ def file_outline(rel_path: str) -> str:
         detail={"path": raw, "kind": kind, "items": len(items), "truncated": truncated},
     )
     return "\n".join(header + items)
+
+
+def _normalize_rel_path(rel_path: str) -> str:
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    return rel_path.strip().replace("\\", "/")
+
+
+def _read_text_lines(rel_path: str):
+    """Return (shown_path, lines) for one workspace text file. Raises on bad path.
+
+    Uses splitlines() so CRLF and LF agree. Does not follow a path outside
+    the workspace. A directory is an error. Does not replace read_file.
+    """
+    raw = _normalize_rel_path(rel_path)
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    try:
+        text = target.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"not valid UTF-8: {raw}") from e
+    except OSError as e:
+        raise ValueError(f"cannot read file: {e}") from e
+    shown = raw.lstrip("./") or raw
+    return shown, text.splitlines()
+
+
+def _parse_positive_int(value, label: str) -> int:
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"{label} must be a positive integer")
+    if isinstance(value, int):
+        n = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        n = int(value.strip())
+    else:
+        raise ValueError(f"{label} must be a positive integer")
+    if n < 1:
+        raise ValueError(f"{label} must be >= 1")
+    return n
+
+
+def _format_line_span(lines, start: int, end: int, total: int) -> str:
+    """Format an inclusive 1-based span. start and end are already validated."""
+    body = []
+    for n in range(start, end + 1):
+        body.append(f"{n}|{lines[n - 1]}")
+    header = f"lines {start}-{end} of {total}"
+    if not body:
+        return header
+    return header + "\n" + "\n".join(body)
+
+
+def read_file_range(rel_path: str, start_line, end_line) -> str:
+    """Inclusive 1-based line range. Errors instead of reading the whole file.
+
+    Does not replace read_file. A span wider than PARTIAL_READ_MAX_LINES errors.
+    """
+    shown, lines = _read_text_lines(rel_path)
+    total = len(lines)
+    start = _parse_positive_int(start_line, "start_line")
+    end = _parse_positive_int(end_line, "end_line")
+    if start > end:
+        raise ValueError(f"start_line {start} is after end_line {end}")
+    if end - start + 1 > PARTIAL_READ_MAX_LINES:
+        raise ValueError(
+            f"range is {end - start + 1} lines; max is {PARTIAL_READ_MAX_LINES}. "
+            "Narrow the range. This does not read the whole file."
+        )
+    if total == 0 or start > total or end > total:
+        raise ValueError(
+            f"range {start}-{end} is outside 1-{total}. "
+            "Refusing to read the whole file."
+        )
+    text = _format_line_span(lines, start, end, total)
+    log_event(
+        "file_read_range",
+        f"Range {shown} {start}-{end} of {total}",
+        detail={"path": shown, "start": start, "end": end, "total": total},
+    )
+    return text
+
+
+def read_file_head(rel_path: str, n=PARTIAL_READ_DEFAULT_N) -> str:
+    """First n lines. Default 40. Does not replace read_file."""
+    if n is None:
+        n = PARTIAL_READ_DEFAULT_N
+    count = _parse_positive_int(n, "n")
+    if count > PARTIAL_READ_MAX_LINES:
+        raise ValueError(f"n is {count}; max is {PARTIAL_READ_MAX_LINES}")
+    shown, lines = _read_text_lines(rel_path)
+    total = len(lines)
+    if total == 0:
+        text = "lines 0-0 of 0"
+    else:
+        end = min(count, total)
+        text = _format_line_span(lines, 1, end, total)
+    log_event(
+        "file_read_head",
+        f"Head {shown} n={count}",
+        detail={"path": shown, "n": count, "total": total},
+    )
+    return text
+
+
+def read_file_tail(rel_path: str, n=PARTIAL_READ_DEFAULT_N) -> str:
+    """Last n lines. Default 40. Does not replace read_file."""
+    if n is None:
+        n = PARTIAL_READ_DEFAULT_N
+    count = _parse_positive_int(n, "n")
+    if count > PARTIAL_READ_MAX_LINES:
+        raise ValueError(f"n is {count}; max is {PARTIAL_READ_MAX_LINES}")
+    shown, lines = _read_text_lines(rel_path)
+    total = len(lines)
+    if total == 0:
+        text = "lines 0-0 of 0"
+    else:
+        start = max(1, total - count + 1)
+        text = _format_line_span(lines, start, total, total)
+    log_event(
+        "file_read_tail",
+        f"Tail {shown} n={count}",
+        detail={"path": shown, "n": count, "total": total},
+    )
+    return text
+
+
+def _parse_context_lines(value) -> int:
+    """context_lines may be 0. Default 2. Max SEARCH_IN_FILE_MAX_CONTEXT."""
+    if value is None:
+        value = 2
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError("context_lines must be an integer")
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw.isdigit():
+            raise ValueError("context_lines must be an integer >= 0")
+        ctx = int(raw)
+    else:
+        ctx = value
+    if ctx < 0:
+        raise ValueError("context_lines must be >= 0")
+    if ctx > SEARCH_IN_FILE_MAX_CONTEXT:
+        raise ValueError(f"context_lines is {ctx}; max is {SEARCH_IN_FILE_MAX_CONTEXT}")
+    return ctx
+
+
+def search_in_file(rel_path: str, pattern: str, context_lines=2) -> str:
+    """Literal search inside one file. Returns matching lines with context.
+
+    Not regex. Not search_files. Does not replace read_file.
+    """
+    if not isinstance(pattern, str) or pattern == "":
+        raise ValueError("pattern is required")
+    if len(pattern) > SEARCH_IN_FILE_MAX_PATTERN:
+        raise ValueError(
+            f"pattern is {len(pattern)} characters; max is {SEARCH_IN_FILE_MAX_PATTERN}"
+        )
+    ctx = _parse_context_lines(context_lines)
+    shown, lines = _read_text_lines(rel_path)
+    total = len(lines)
+    hits = [i for i, line in enumerate(lines, 1) if pattern in line]
+    omitted = 0
+    if len(hits) > SEARCH_IN_FILE_MAX_MATCHES:
+        omitted = len(hits) - SEARCH_IN_FILE_MAX_MATCHES
+        hits = hits[:SEARCH_IN_FILE_MAX_MATCHES]
+    spans = []
+    for hit in hits:
+        start = max(1, hit - ctx)
+        end = min(total, hit + ctx)
+        if spans and start <= spans[-1][1] + 1:
+            spans[-1] = (spans[-1][0], max(spans[-1][1], end))
+        else:
+            spans.append((start, end))
+    header = [
+        f"path: {shown}",
+        f"pattern: {pattern}",
+        f"matches: {len(hits) + omitted}",
+        f"shown: {len(hits)}",
+        f"context_lines: {ctx}",
+    ]
+    if omitted:
+        header.append(
+            f"truncated: yes; omitted {omitted} matches past {SEARCH_IN_FILE_MAX_MATCHES}"
+        )
+    if not hits:
+        header.append("no matches")
+        text = "\n".join(header)
+    else:
+        blocks = [_format_line_span(lines, start, end, total) for start, end in spans]
+        text = "\n".join(header) + "\n" + "\n---\n".join(blocks)
+    log_event(
+        "file_search",
+        f"Search {shown} matches={len(hits) + omitted}",
+        detail={
+            "path": shown,
+            "matches": len(hits) + omitted,
+            "shown": len(hits),
+            "context_lines": ctx,
+        },
+    )
+    return text
 
 
 def list_dir(rel_path: str = ".") -> str:
@@ -2016,24 +2352,25 @@ def emit_handoff(task: str) -> str:
 
 
 def _tool_result_text(text: str, limit: int = None) -> str:
-    """Cap text returned to the model. Does not change the file on disk.
+    """Return tool text for the model. Does not change the file on disk.
 
-    The returned string is always at most `limit` characters. A truncated
-    result names the original length and the omitted count. The omitted count
-    is measured against the original, not against a prefix that was later
-    shortened to fit the notice. Until step 3, that notice is the recovery
-    path. file_info and file_outline are the other recovery path.
+    TOOL_RESULT_CHAR_LIMIT is None while the cap stays off.
+    In that mode the full string is returned. A positive limit still truncates
+    and says TRUNCATED. Partial reads stay available either way.
+    Do not restore the cap until the user verifies partial IO.
     """
     if not isinstance(text, str):
         text = str(text)
     if limit is None:
         limit = TOOL_RESULT_CHAR_LIMIT
+    if limit is None:
+        return text
     try:
         limit = int(limit)
     except (TypeError, ValueError):
-        limit = TOOL_RESULT_CHAR_LIMIT
+        return text
     if limit < 1:
-        limit = 1
+        return text
     original = len(text)
     if original <= limit:
         return text
@@ -2041,7 +2378,7 @@ def _tool_result_text(text: str, limit: int = None) -> str:
     # "omitted N of M" uses the original length. Shown prefix is limit minus note.
     note = (
         "\n[TRUNCATED not whole; omitted %d of %d; "
-        "use file_info or file_outline; partial reads are step 3]\n"
+        "use file_info, file_outline, or a partial read]\n"
     ) % (original - limit, original)
     # If the note itself is longer than the cap, hard-cut the note only.
     if len(note) >= limit:
@@ -2144,9 +2481,9 @@ def _parse_tool_args(raw):
 def execute_tool(name: str, arguments: dict, round_i: int) -> str:
     """Run one tool call. Prints one trace line. Never raises.
 
-    A failure in file_info or file_outline returns an error string. It does
-    not unregister or alter list_dir, read_file, write_file, update_task,
-    git, or handoff.
+    A failure in a partial-read tool returns an error string. It does not
+    unregister or alter list_dir, read_file, write_file, update_task, git,
+    handoff, file_info, or file_outline.
     """
     if not isinstance(arguments, dict):
         arguments = {}
@@ -2277,6 +2614,64 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
                 "tool_exec",
                 f"file_outline {rel}",
                 detail={"tool": name, "path": rel, "lines": nlines, "round": round_i},
+            )
+            return text
+        if name == "read_file_range":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            text = read_file_range(
+                rel,
+                arguments.get("start_line"),
+                arguments.get("end_line"),
+            )
+            emit(f"[tool] read_file_range {rel}")
+            log_event(
+                "tool_exec",
+                f"read_file_range {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "read_file_head":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            n = arguments.get("n", PARTIAL_READ_DEFAULT_N)
+            text = read_file_head(rel, n)
+            emit(f"[tool] read_file_head {rel}")
+            log_event(
+                "tool_exec",
+                f"read_file_head {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "read_file_tail":
+            rel = str(arguments.get("path") or "").strip()
+            if not rel:
+                raise ValueError("path is required")
+            n = arguments.get("n", PARTIAL_READ_DEFAULT_N)
+            text = read_file_tail(rel, n)
+            emit(f"[tool] read_file_tail {rel}")
+            log_event(
+                "tool_exec",
+                f"read_file_tail {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
+            )
+            return text
+        if name == "search_in_file":
+            rel = str(arguments.get("path") or "").strip()
+            pattern = arguments.get("pattern")
+            if not rel:
+                raise ValueError("path is required")
+            if not isinstance(pattern, str):
+                raise ValueError("pattern is required")
+            ctx = arguments.get("context_lines", 2)
+            text = search_in_file(rel, pattern, ctx)
+            emit(f"[tool] search_in_file {rel}")
+            log_event(
+                "tool_exec",
+                f"search_in_file {rel}",
+                detail={"tool": name, "path": rel, "round": round_i},
             )
             return text
         raise ValueError(f"unknown tool: {name}")
@@ -2610,7 +3005,8 @@ def print_commands():
     emit("Commit/push need 'approve git commit' or 'approve git push' in the directive.")
     emit("One commit and one push per turn. A successful push ends the turn.")
     emit("Ask-first is locked: questions and statements are not permission to act.")
-    emit("Tool results to the model are capped at 12,000 characters.")
+    emit("Tool-result character cap stays off until partial IO is verified.")
+    emit("Partial reads: read_file_range, read_file_head, read_file_tail, search_in_file.")
 
 
 def _repl_git(user_input: str) -> None:
@@ -2783,7 +3179,7 @@ def main():
                 )
                 # Strip accidental fences if Grok added them
                 if new_content.startswith("```"):
-                    new_content = "\n".join(new_content.split("\n")[1:-1])
+                    new_content = "\n".join(new_content.splitlines()[1:-1])
                 write_file(rel_path, new_content)
                 log_event(
                     "self_improve",
