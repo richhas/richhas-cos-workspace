@@ -1,6 +1,6 @@
 # COS Tools — Initial Implementation Plan
 
-**Status:** steps 1–5 done and signed off; step 6 not started
+**Status:** steps 1–6 done and signed off. First wave closed. Next slice not started.
 **Booked:** 2026-10-22, by the explicit directive "Book this initial plan"
 **Step 1 done:** 2026-10-22, by "do step 1". User signed off the same day: v1.2 matched the review.
 **Plan updated:** 2026-10-22, by the explicit directive "Update the spec files and plan"
@@ -9,13 +9,14 @@
 **Step 3 done:** 2026-10-23, by "do step 3". User signed off the same day: "sign off". Script passed (`fails 0`). Does not start step 4.
 **Step 4 done:** 2026-10-23, by "do step 4". User signed off the same day: "sign-off". Script passed (`fails 0`). Does not start step 5.
 **Step 5 done:** 2026-10-23, by "do step 5". User signed off the same day: "sign-off". Script passed (`fails 0`). Does not start step 6.
+**Step 6 done:** 2026-10-23, by "do step 6". User signed off the same day: "sign off". First wave closed at steps 1–5. Does not start a later slice.
 **Parent spec:** specs/cos-tools.md v1.3 (v1.2 and v1.3 signed off; v1.3 sign-off does not start step 2)
 **Related:** specs/claude-api-proposal.md (proposal only; client not built)
-**Does not authorize:** editing cos/cos.py for a new slice, implementing step 6, calling Claude, restoring the tool-result cap, or git commit/push
+**Does not authorize:** editing cos/cos.py for a new slice, starting a later slice, calling Claude, restoring the tool-result cap, or git commit/push
 
 This file records the ordered plan so progress can be made one step at a time. Booking it was not approval to start a step. Updating it is not approval to start a step. Signing off a finished step does not start the next one. Each step needs its own explicit instruction that names that step. Ask-first still holds.
 
-This update records the step 5 sign-off. It does not start step 6. It does not restore the tool-result cap.
+This update records the step 6 sign-off. It does not start a later slice. It does not restore the tool-result cap.
 
 ## Rules for every step
 
@@ -116,7 +117,7 @@ These are additions. The six live tools stay. `file_info`, `file_outline`, and t
 ## Step 5 — One-file patch
 
 **Task id:** `tools-5-patch`
-**Status:** done. Signed off 2026-10-23 by "sign-off". This update does not reopen it and does not start step 6.
+**Status:** done. Signed off 2026-10-23 by "sign-off". This update does not reopen it. Step 6 was recorded later by "do step 6".
 **Was blocked on:** step 4 sign-off. That block was lifted by the step 4 sign-off. The step was started later by "do step 5".
 
 Add `patch_file` with literal search/replace. If `replace_all` is false and the search occurs any number other than 1, return an error and do not write. Return a short diff summary. Do not add `apply_patches`, `replace_range`, or multi-file writes in this step. Do not replace `write_file`.
@@ -130,12 +131,12 @@ Add `patch_file` with literal search/replace. If `replace_all` is false and the 
 ## Step 6 — Sign-off gate for anything further
 
 **Task id:** `tools-6-gate`
-**Status:** eligible, not started. Needs its own instruction. The step 5 sign-off is not that instruction.
-**Was blocked on:** step 5 sign-off. That block is lifted. No new tool in this step.
+**Status:** done. Signed off 2026-10-23 by "sign off". This sign-off does not start a later slice.
+**Was blocked on:** step 5 sign-off. That block was lifted by the step 5 sign-off. The step was started later by "do step 6". No new tool in this step.
 
-No new tool. Record that steps 1–5 are the first wave, and that the next slice is a separate decision.
+No new tool. Steps 1–5 are the first wave. The next slice is a separate decision and needs its own explicit instruction.
 
-Still not started, and not implied by finishing step 5:
+Still not started, and not implied by recording this gate:
 
 - Remaining §3.3 and §3.4 writes (`append_file`, `insert_at_line`, `replace_range`, `apply_patches`, copy/move, `create_files`).
 - §3.5 context tools (`context_stats`, `summarize_context`).
@@ -146,6 +147,8 @@ Still not started, and not implied by finishing step 5:
 - System-prompt paragraph in `specs/cos-tools.md` §4. Add it only when the tools it names actually exist, and only under an explicit instruction.
 
 **Done when:** this gate is written into the task list as the end of the first wave, and you sign off. The next slice still needs its own instruction. The six live tools are still present. `file_info`, `file_outline`, the four partial reads, `search_files`, `list_files`, and `patch_file` stay.
+
+**Signed off:** 2026-10-23, by "sign off". The gate is in this file and in `cos/tasks.md`. This sign-off does not start a later slice.
 
 ## What the v1.3 update did not do
 
@@ -189,8 +192,15 @@ Still not started, and not implied by finishing step 5:
 
 ## What the step 5 sign-off does not do
 
-- Does not start step 6. `tools-6-gate` stays open and not doing.
+- Does not start step 6. That step was started later by its own instruction, "do step 6".
 - Does not add `apply_patches`, `replace_range`, or any later-slice tool.
+- Does not edit `cos/cos.py`.
+- Does not restore the 12,000-character tool-result cap. Cap stays `None` until a later directive says otherwise, and only after the user verifies partial IO.
+- Does not commit or push. That still needs `approve git commit` or `approve git push` in a later directive.
+
+## What the step 6 sign-off does not do
+
+- Does not start a later slice. Remaining writes, context tools, §3.6, §3.7, and the Claude client stay unstarted.
 - Does not edit `cos/cos.py`.
 - Does not restore the 12,000-character tool-result cap. Cap stays `None` until a later directive says otherwise, and only after the user verifies partial IO.
 - Does not commit or push. That still needs `approve git commit` or `approve git push` in a later directive.
