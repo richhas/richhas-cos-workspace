@@ -90,6 +90,91 @@
     {
       "type": "function",
       "function": {
+        "name": "insert_at_line",
+        "description": "Insert UTF-8 text before a 1-based line in one workspace file. Does not replace the file. Does not replace write_file, patch_file, or append_file. Does not update cos/tasks.md. Not replace_range, not apply_patches. An out-of-range line errors and does not write. Keeps the file newline style. Does not turn CRLF into CR CR LF.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path. Not cos/tasks.md."
+            },
+            "line_number": {
+              "type": "integer",
+              "description": "1-based line to insert before. Inclusive of the end-plus-one position."
+            },
+            "content": {
+              "type": "string",
+              "description": "Text to insert. Not a full-file replacement."
+            }
+          },
+          "required": [
+            "path",
+            "line_number",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "replace_range",
+        "description": "Replace an inclusive 1-based line span in one workspace file. Does not replace the whole file. Does not replace write_file, patch_file, append_file, or insert_at_line. Does not update cos/tasks.md. Not apply_patches. An inverted or out-of-range span errors and does not write. Keeps the file newline style. Does not turn CRLF into CR CR LF.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path. Not cos/tasks.md."
+            },
+            "start_line": {
+              "type": "integer",
+              "description": "First line to replace. 1-based. Inclusive."
+            },
+            "end_line": {
+              "type": "integer",
+              "description": "Last line to replace. 1-based. Inclusive. Must be >= start_line and within the file."
+            },
+            "new_content": {
+              "type": "string",
+              "description": "Replacement text for that span. May be empty to delete the span."
+            }
+          },
+          "required": [
+            "path",
+            "start_line",
+            "end_line",
+            "new_content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "apply_patches",
+        "description": "Apply a list of patches in order. Each item is {path, search, replace} or {path, start_line, end_line, new_content}. Stops on the first error and reports what succeeded. Does not roll back earlier successes. Does not update cos/tasks.md. Not copy/move. Not create_files. Not a shell. Each patch keeps the file newline style.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "patches": {
+              "type": "array",
+              "description": "Non-empty list. Each item has path plus either search and replace, or start_line, end_line, and new_content.",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "required": [
+            "patches"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "update_task",
         "description": "Add or update one task in cos/tasks.md. id is a short slug (lowercase letters, digits, hyphens). status is open, doing, blocked, or done. title is required when creating a task. note is an optional one-line reason, appended to the task. At most one task may be doing; setting doing moves any other doing task back to open. Does not commit or push.",
         "parameters": {

@@ -4388,3 +4388,283 @@ That closes the retry only. Four attempts, sleeps 2s/4s/8s, retry on SSL, connec
 - No `insert_at_line`. `tools-10-insert` stays open. It needs its own instruction, for example "do step 10".
 - No commit. That needs `approve git commit` in a later directive.
 - The 12,000-character cap stays off until you v...
+
+## 2026-10-24T00:25:43.742509+00:00
+- Git: add exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace add -- cos/cos.py cos/tools_impl.py cos/tool_catalog.json cos/tasks.md specs/cos-tools-plan.md cos/context.md cos/event_log.jsonl
+exit 0
+stderr:
+warning: in the working copy of 'cos/tool_catalog.json', LF will be replaced by CRLF the next time Git touches it
+
+## 2026-10-24T00:25:45.037520+00:00
+- Git: commit exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace commit -m Record catalog dispatch, API retry, and session context
+exit 0
+[main ac09760] Record catalog dispatch, API retry, and session context
+ 7 files changed, 2722 insertions(+), 224 deletions(-)
+ create mode 100644 cos/tool_catalog.json
+
+## 2026-10-24T00:25:48.974432+00:00
+- Git: push exit 0
+- Output: $ git -C C:\Users\richhas.MAXIE\OneDrive\Source\Repos\cos-workspace push origin main
+exit 0
+stderr:
+To https://github.com/richhas/richhas-cos-workspace.git
+   24cdd31..ac09760  main -> main
+
+## 2026-10-24T00:25:48.990057+00:00
+- Dialog:
+  - In: approve git commit and approve git push
+  - Tools: git, git, git, git, git (4 round(s))
+  - Out: Commit landed. Pushing once to origin/main.
+
+Push succeeded. Turn stopped so logging would not be committed again. cos/context.md and cos/event_log.jsonl will still be dirty; that residual belongs to the next directive.
+
+## 2026-10-24T00:26:05.122503+00:00
+- Dialog:
+  - In: next step?
+  - Tools: (none) (1 round(s))
+  - Out: **Next is step 10.** It is not started. This question does not start it.
+
+`tools-10-insert` is eligible: add `insert_at_line` only. No `replace_range`, no `apply_patches`. The existing tools stay. The result cap stays off. Steps 11 and 12 stay blocked until you sign off each one in order.
+
+If you say **do step 10**, I would add that tool beside the current set, leave a hand check, run it, and stop. Sign-off and any commit would be later instructions.
+
+Also still open, not next: `closed-loop`, `routing-load`. After the last push (`24cdd31..ac09760`), `cos/context.md` and `cos/event_log.jsonl` are dirty by design. Leave them.
+
+## 2026-10-24T00:26:33.215238+00:00
+- Task: `tools-10-insert` doing — Add insert_at_line only
+- Note: User said do step 10. Adding insert_at_line only. No replace_range or apply_patches. Cap stays off.
+
+## 2026-10-24T00:26:42.215879+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-24T00:26:45.488182+00:00
+- File change: patched `cos/tool_catalog.json` (1 replacement(s))
+
+## 2026-10-24T00:26:58.848522+00:00
+- File change: wrote `protocol/step10_self_test.py` (3737 bytes)
+
+## 2026-10-24T00:27:10.998211+00:00
+- File change: wrote `protocol/step10_self_test.py` (4479 bytes)
+
+## 2026-10-24T00:27:15.886262+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:27:15.916700+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:27:22.248589+00:00
+- Task: `tools-10-insert` doing — Add insert_at_line only
+- Note: Wrote insert_at_line in cos/tools_impl.py and cos/tool_catalog.json. Disk check fails 0. Not live until the next catalog load. Awaiting sign-off. Does not start step 11. Cap stays off.
+
+## 2026-10-24T00:27:24.867484+00:00
+- Dialog:
+  - In: do step 10
+  - Tools: update_task, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, patch_file, patch_file, read_file_range, patch_file, read_file_range, write_file, run_check, search_in_file, search_in_file, read_file_head, read_file_range, search_in_file, read_file, write_file, run_check, search_in_file, search_in_file, patch_file, patch_file, search_in_file, read_file_range, update_task (20 round(s))
+  - Out: Step 10 is written. It is not signed off. Step 11 was not started. The result cap stays off.
+
+**Changed**
+- `cos/tools_impl.py` — `insert_at_line`. Inserts before a 1-based line. Refuses `cos/tasks.md`, a missing file, and an out-of-range line. CRLF stays CRLF. No CR CR LF. Not `replace_range` or `apply_patches`.
+- `cos/tool_catalog.json` — name, description, and schema. No dispatcher name chain.
+- `specs/cos-tools-plan.md` — step 10 is written, awaiting sign-off.
+- `protocol/step10_self_test.py` — hand check. Do not stage it.
+
+**Test**
+`run_check protocol/step10_self_test.py` exited 0. Twenty `PASS` lines, then `fails 0`. That covered insert at line 1, the middle, and end-plus-one, plus out-of-range, tasks refusal, path escape, and CRLF.
+
+**Not live in this turn**
+The catalog is loaded before the next Grok round, so a restart is not required for the call itself. This turn's prompt wa...
+
+## 2026-10-24T00:28:19.914348+00:00
+- Task: `tools-10-insert` done — Add insert_at_line only
+- Note: User signed off 2026-10-24: "sign off". Catalog loaded insert_at_line. Disk check fails 0. Does not start step 11. Cap stays off.
+
+## 2026-10-24T00:28:19.953334+00:00
+- Task: `tools-11-range` open — Add replace_range only
+- Note: Step 10 signed off. Eligible, not started. Needs its own instruction. No apply_patches. Cap stays off.
+
+## 2026-10-24T00:28:22.341590+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:28:22.378368+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:28:24.603935+00:00
+- Dialog:
+  - In: sign off
+  - Tools: search_in_file, search_in_file, search_in_file, file_info, update_task, update_task, read_file_range, patch_file, patch_file (4 round(s))
+  - Out: Sign-off accepted. Step 10 is closed. Step 11 was not started. The result cap stays off.
+
+**What "sign off" covered**
+- `insert_at_line` in `cos/tools_impl.py`, already in this turn's catalog. It inserts before a 1-based line, refuses `cos/tasks.md` and an out-of-range line, and keeps the file's newline style. No CR CR LF.
+- The earlier disk check of `protocol/step10_self_test.py`: twenty `PASS` lines, then `fails 0`.
+
+**Recorded**
+- `tools-10-insert` is done, with the sign-off note.
+- `tools-11-range` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 10 is signed off and step 11 is not started.
+
+**Not done**
+- No `replace_range` or `apply_patches`.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+Step 11 still needs its own instr...
+
+## 2026-10-24T00:28:43.345536+00:00
+- Task: `tools-11-range` doing — Add replace_range only
+- Note: User said do step 11. Adding replace_range only. No apply_patches. Cap stays off.
+
+## 2026-10-24T00:28:55.623148+00:00
+- File change: patched `cos/tools_impl.py` (1 replacement(s))
+
+## 2026-10-24T00:28:55.684393+00:00
+- File change: patched `cos/tool_catalog.json` (1 replacement(s))
+
+## 2026-10-24T00:29:13.110660+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:29:13.159629+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:29:13.190877+00:00
+- File change: wrote `protocol/step11_self_test.py` (4811 bytes)
+
+## 2026-10-24T00:29:23.134057+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:29:23.171436+00:00
+- Task: `tools-11-range` doing — Add replace_range only
+- Note: Wrote replace_range in cos/tools_impl.py and cos/tool_catalog.json. Disk check fails 0. Not live until the next catalog load. Awaiting sign-off. Does not start step 12. Cap stays off.
+
+## 2026-10-24T00:29:26.942054+00:00
+- Dialog:
+  - In: do step 11
+  - Tools: update_task, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, search_in_file, search_in_file, read_file_range, search_in_file, patch_file, patch_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, patch_file, patch_file, write_file, run_check, search_in_file, read_file_range, patch_file, update_task (13 round(s))
+  - Out: Step 11 is written. It is not signed off. Step 12 was not started. The result cap stays off.
+
+**Changed**
+- `cos/tools_impl.py` — `replace_range`. Replaces an inclusive 1-based span. Refuses `cos/tasks.md`, an inverted span, and an out-of-range span. Empty `new_content` deletes the span. CRLF stays CRLF. No CR CR LF. Not `apply_patches`.
+- `cos/tool_catalog.json` — name, description, and schema. No dispatcher name chain.
+- `cos/cos.py` — prompt text only, so the next round knows it is a write. The catalog is what registers the call.
+- `specs/cos-tools-plan.md` — step 11 is written, awaiting sign-off.
+- `protocol/step11_self_test.py` — hand check. Do not stage it.
+
+**Test**
+`run_check protocol/step11_self_test.py` exited 0. Twenty-four `PASS` lines, then `fails 0`. That covered a middle replace, an inverted span, an out-of-range span, `cos/tasks.md`, path escape, a delete, and CRLF.
+
+*...
+
+## 2026-10-24T00:29:51.742202+00:00
+- Task: `tools-11-range` done — Add replace_range only
+- Note: User signed off 2026-10-24: "sign-off". Catalog loaded replace_range. Disk check fails 0. Does not start step 12. Cap stays off.
+
+## 2026-10-24T00:29:51.780832+00:00
+- Task: `tools-12-patches` open — Add apply_patches only
+- Note: Step 11 signed off. Eligible, not started. Needs its own instruction. Stops on first error. Cap stays off.
+
+## 2026-10-24T00:29:51.815181+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:29:51.877689+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:29:54.640522+00:00
+- Dialog:
+  - In: sign-off
+  - Tools: search_in_file, search_in_file, search_in_file, search_in_file, read_file_range, update_task, update_task, patch_file, patch_file (4 round(s))
+  - Out: Sign-off accepted. Step 11 is closed. Step 12 was not started. The result cap stays off.
+
+**What "sign-off" covered**
+- `replace_range` in `cos/tools_impl.py`, already in this turn's catalog. It replaces an inclusive 1-based span, refuses an inverted or out-of-range span and `cos/tasks.md`, and keeps the file's newline style. Empty content deletes the span. No CR CR LF. Not `apply_patches`.
+- The earlier disk check of `protocol/step11_self_test.py`: twenty-four `PASS` lines, then `fails 0`.
+
+**Recorded**
+- `tools-11-range` is done, with the sign-off note.
+- `tools-12-patches` is eligible and still open. It needs its own instruction.
+- `specs/cos-tools-plan.md` now says step 11 is signed off and step 12 is not started.
+
+**Not done**
+- No `apply_patches`.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO a...
+
+## 2026-10-24T00:30:29.433413+00:00
+- Task: `tools-12-patches` doing — Add apply_patches only
+- Note: User said do step 12. Adding apply_patches only. Stops on first error. Cap stays off.
+
+## 2026-10-24T00:30:46.004378+00:00
+- File change: inserted into `cos/tools_impl.py` before line 1222
+
+## 2026-10-24T00:30:51.403710+00:00
+- File change: inserted into `cos/tool_catalog.json` before line 153
+
+## 2026-10-24T00:31:00.294378+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:31:00.349169+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:31:00.427301+00:00
+- File change: patched `cos/cos.py` (1 replacement(s))
+
+## 2026-10-24T00:31:11.393047+00:00
+- File change: wrote `protocol/step12_self_test.py` (5843 bytes)
+
+## 2026-10-24T00:31:17.944192+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:31:22.038132+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:31:22.062745+00:00
+- Task: `tools-12-patches` doing — Add apply_patches only
+- Note: Wrote apply_patches in cos/tools_impl.py and cos/tool_catalog.json. Disk check fails 0. Not live until the next catalog load. Awaiting sign-off. Does not start a later slice. Cap stays off.
+
+## 2026-10-24T00:31:25.719108+00:00
+- Dialog:
+  - In: do step 12
+  - Tools: update_task, search_in_file, search_in_file, search_in_file, read_file_range, read_file_range, search_in_file, search_in_file, read_file_range, read_file_range, read_file_range, search_in_file, read_file_range, read_file_range, search_in_file, read_file_head, read_file_range, search_in_file, read_file_range, insert_at_line, search_in_file, search_in_file, insert_at_line, patch_file, patch_file, patch_file, write_file, run_check, patch_file, search_in_file, patch_file, update_task (14 round(s))
+  - Out: Step 12 is written. It is not signed off. No later slice was started. The result cap stays off.
+
+**Changed**
+- `cos/tools_impl.py` — `apply_patches`. A list of `{path, search, replace}` or `{path, start_line, end_line, new_content}`, applied in order. Stops on the first error and names what succeeded. Does not roll back. Refuses `cos/tasks.md`. CRLF stays CRLF. No CR CR LF. Not copy/move, not `create_files`.
+- `cos/tool_catalog.json` — name, description, and schema. No dispatcher name chain.
+- `cos/cos.py` — prompt text only, so the next round knows it is a write. The catalog is what registers the call.
+- `specs/cos-tools-plan.md` — step 12 is written, awaiting sign-off.
+- `protocol/step12_self_test.py` — hand check. Do not stage it.
+
+**Test**
+`run_check protocol/step12_self_test.py` exited 0. Twenty-five `PASS` lines, then `fails 0`. That covered two successful patches, a third that ...
+
+## 2026-10-24T00:32:38.012576+00:00
+- Task: `tools-12-patches` done — Add apply_patches only
+- Note: User signed off 2026-10-24: "sign off". Catalog loaded apply_patches. Disk check fails 0. Does not start a later slice. Cap stays off.
+
+## 2026-10-24T00:32:44.785961+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:32:44.826296+00:00
+- File change: patched `specs/cos-tools-plan.md` (1 replacement(s))
+
+## 2026-10-24T00:32:50.625816+00:00
+- Dialog:
+  - In: sign off
+  - Tools: file_outline, search_in_file, search_in_file, search_in_file, read_file_range, update_task, patch_file, patch_file (4 round(s))
+  - Out: Sign-off accepted. Step 12 is closed. No later slice was started. The result cap stays off.
+
+**What "sign off" covered**
+- `apply_patches` in `cos/tools_impl.py`, already in this turn's catalog. A list of search/replace or line-span patches, applied in order. Stops on the first error and names what succeeded. Does not roll back. Refuses `cos/tasks.md`. CRLF stays CRLF. Not copy/move, not `create_files`.
+- The earlier disk check of `protocol/step12_self_test.py`: twenty-five `PASS` lines, then `fails 0`.
+
+**Recorded**
+- `tools-12-patches` is done, with the sign-off note.
+- `specs/cos-tools-plan.md` now says step 12 is signed off and does not start a later slice.
+
+**Not done**
+- No §3.4, context tools, §3.6, §3.7, or Claude client.
+- No commit. That needs `approve git commit` in a later directive.
+- The 12,000-character cap stays off until you verify partial IO and say to restore it.
+
+S...

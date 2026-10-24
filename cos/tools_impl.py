@@ -1027,6 +1027,291 @@ def append_file(rel_path: str, content: str) -> str:
     return summary
 
 
+def insert_at_line(rel_path: str, line_number, content: str) -> str:
+    """Insert text before a 1-based line. Does not replace the file.
+
+    Does not replace write_file, patch_file, or append_file.
+    Does not update cos/tasks.md.
+    Not replace_range, not apply_patches.
+    An out-of-range line errors and does not write.
+    Content is matched as LF text and written in the file's newline style.
+    A CRLF file stays CRLF, not CR CR LF.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    if not isinstance(content, str):
+        raise ValueError("content must be a string")
+    if isinstance(line_number, bool) or not isinstance(line_number, int):
+        if isinstance(line_number, str) and line_number.strip().lstrip("-").isdigit():
+            line_number = int(line_number.strip())
+        else:
+            raise ValueError("line_number must be an integer")
+    if line_number < 1:
+        raise ValueError("line_number must be >= 1; file not written")
+    raw = rel_path.strip().replace("\\", "/").rstrip("/")
+    norm = raw.lstrip("./") or raw
+    if norm in ("cos/tasks.md", "tasks.md"):
+        raise ValueError("use update_task for cos/tasks.md, not insert_at_line")
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    original = target.read_bytes()
+    newline = _newline_style(original)
+    text = _to_lf(original.decode("utf-8"))
+    if text == "":
+        lines = []
+    else:
+        lines = text.split("\n")
+        if lines and lines[-1] == "":
+            lines = lines[:-1]
+    if line_number > len(lines) + 1:
+        raise ValueError(
+            f"line_number {line_number} is past end ({len(lines)} lines); file not written"
+        )
+    addition = _to_lf(content)
+    if addition == "" or addition.endswith("\n"):
+        insert_lines = addition.split("\n")
+        if insert_lines and insert_lines[-1] == "":
+            insert_lines = insert_lines[:-1]
+    else:
+        insert_lines = [addition]
+    updated_lines = lines[: line_number - 1] + insert_lines + lines[line_number - 1 :]
+    updated = "\n".join(updated_lines)
+    if text.endswith("\n") or text == "":
+        updated += "\n"
+    if updated == text:
+        raise ValueError("insert did not change the file; file not written")
+    payload = _from_lf(updated, newline).encode("utf-8")
+    if b"\r\r\n" in payload:
+        raise ValueError("refusing to write doubled CR; file not written")
+    target.write_bytes(payload)
+    shown = raw.lstrip("./") or raw
+    summary = "\n".join([
+        f"path: {shown}",
+        f"line_number: {line_number}",
+        f"inserted_lines: {len(insert_lines)}",
+        f"size_bytes: {len(payload)}",
+        f"newline: {newline!r}",
+    ])
+    log_event(
+        "file_insert",
+        f"Inserted into {raw}",
+        detail={
+            "path": raw,
+            "line_number": line_number,
+            "inserted_lines": len(insert_lines),
+            "bytes": len(payload),
+        },
+    )
+    append_context(
+        f"- File change: inserted into `{raw}` before line {line_number}"
+    )
+    return summary
+
+
+def _as_line_number(value, name: str) -> int:
+    """Coerce a tool argument to a 1-based line number. Does not write."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+            value = int(value.strip())
+        else:
+            raise ValueError(f"{name} must be an integer")
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1; file not written")
+    return value
+
+
+def _split_lines(text: str) -> list:
+    """Split LF text into lines, dropping one trailing empty line."""
+    if text == "":
+        return []
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines = lines[:-1]
+    return lines
+
+
+def replace_range(rel_path: str, start_line, end_line, new_content: str) -> str:
+    """Replace an inclusive 1-based line span. Does not replace the file.
+
+    Does not replace write_file, patch_file, append_file, or insert_at_line.
+    Does not update cos/tasks.md.
+    Not apply_patches.
+    An inverted or out-of-range span errors and does not write.
+    Content is matched as LF text and written in the file's newline style.
+    A CRLF file stays CRLF, not CR CR LF.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    if not isinstance(new_content, str):
+        raise ValueError("new_content must be a string")
+    start_line = _as_line_number(start_line, "start_line")
+    end_line = _as_line_number(end_line, "end_line")
+    if end_line < start_line:
+        raise ValueError(
+            f"inverted span {start_line}-{end_line}; file not written"
+        )
+    raw = rel_path.strip().replace("\\", "/").rstrip("/")
+    norm = raw.lstrip("./") or raw
+    if norm in ("cos/tasks.md", "tasks.md"):
+        raise ValueError("use update_task for cos/tasks.md, not replace_range")
+    target = resolve_safe(raw)
+    if not target.exists():
+        raise FileNotFoundError(raw)
+    if target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    if not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    original = target.read_bytes()
+    newline = _newline_style(original)
+    text = _to_lf(original.decode("utf-8"))
+    lines = _split_lines(text)
+    if start_line > len(lines) or end_line > len(lines):
+        raise ValueError(
+            f"span {start_line}-{end_line} is out of range "
+            f"({len(lines)} lines); file not written"
+        )
+    addition = _to_lf(new_content)
+    if addition == "":
+        new_lines = []
+    elif addition.endswith("\n"):
+        new_lines = _split_lines(addition)
+    else:
+        new_lines = [addition]
+    updated_lines = lines[: start_line - 1] + new_lines + lines[end_line:]
+    updated = "\n".join(updated_lines)
+    if text.endswith("\n") or (text == "" and updated_lines):
+        updated += "\n"
+    if updated == text:
+        raise ValueError("replace_range did not change the file; file not written")
+    payload = _from_lf(updated, newline).encode("utf-8")
+    if b"\r\r\n" in payload:
+        raise ValueError("refusing to write doubled CR; file not written")
+    target.write_bytes(payload)
+    shown = raw.lstrip("./") or raw
+    summary = "\n".join([
+        f"path: {shown}",
+        f"start_line: {start_line}",
+        f"end_line: {end_line}",
+        f"replaced_lines: {end_line - start_line + 1}",
+        f"new_lines: {len(new_lines)}",
+        f"size_bytes: {len(payload)}",
+        f"newline: {newline!r}",
+    ])
+    log_event(
+        "file_replace_range",
+        f"Replaced lines in {raw}",
+        detail={
+            "path": raw,
+            "start_line": start_line,
+            "end_line": end_line,
+            "replaced_lines": end_line - start_line + 1,
+            "new_lines": len(new_lines),
+            "bytes": len(payload),
+        },
+    )
+    append_context(
+        f"- File change: replaced lines {start_line}-{end_line} in `{raw}`"
+    )
+    return summary
+
+
+def apply_patches(patches) -> str:
+    """Apply a list of patches in order. Stops on the first error.
+
+    Each item is {path, search, replace} or {path, start_line, end_line, new_content}.
+    Does not replace write_file, patch_file, or replace_range.
+    Does not update cos/tasks.md. Not copy/move. Not create_files.
+    A failed later patch does not roll back earlier successes.
+    The summary names what succeeded and the error that stopped the rest.
+    """
+    if isinstance(patches, str):
+        stripped = patches.strip()
+        if stripped.startswith("["):
+            try:
+                patches = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"patches is not a JSON list: {exc}") from exc
+    if not isinstance(patches, list) or not patches:
+        raise ValueError("patches must be a non-empty list")
+    done = []
+    for index, item in enumerate(patches, start=1):
+        if not isinstance(item, dict):
+            summary = _apply_patches_stop(done, index, "patch is not an object")
+            raise ValueError(summary)
+        try:
+            kind, detail = _apply_one_patch(item)
+        except (ValueError, FileNotFoundError, OSError) as exc:
+            summary = _apply_patches_stop(done, index, str(exc))
+            raise ValueError(summary) from exc
+        done.append(f"{index}: {kind} {detail}")
+    summary = "\n".join([
+        f"applied: {len(done)}",
+        "stopped: no",
+    ] + done)
+    log_event(
+        "file_apply_patches",
+        f"Applied {len(done)} patch(es)",
+        detail={"applied": len(done), "stopped": False},
+    )
+    append_context(f"- File change: apply_patches applied {len(done)}")
+    return summary
+
+
+def _apply_patches_stop(done, index, error) -> str:
+    """Build the stop summary. Does not write. Does not roll back."""
+    lines = [
+        f"applied: {len(done)}",
+        "stopped: yes",
+        f"stopped_at: {index}",
+        f"error: {error}",
+    ]
+    lines.extend(done)
+    log_event(
+        "file_apply_patches",
+        f"Stopped apply_patches at {index}",
+        detail={"applied": len(done), "stopped": True, "stopped_at": index},
+    )
+    if done:
+        append_context(
+            f"- File change: apply_patches applied {len(done)}, stopped at {index}"
+        )
+    return "\n".join(lines)
+
+
+def _apply_one_patch(item: dict):
+    """Apply one patch item by calling the existing single-file tools."""
+    path = item.get("path")
+    if not isinstance(path, str) or not path.strip():
+        raise ValueError("path is required")
+    has_search = "search" in item
+    has_span = "start_line" in item or "end_line" in item
+    if has_search and has_span:
+        raise ValueError("patch mixes search and line span; file not written")
+    if has_search:
+        replace = item.get("replace", "")
+        if not isinstance(replace, str):
+            raise ValueError("replace must be a string")
+        replace_all = item.get("replace_all", False)
+        summary = patch_file(path, item.get("search"), replace, replace_all)
+        return "patch_file", path.strip().replace("\\", "/")
+    if has_span:
+        if "start_line" not in item or "end_line" not in item:
+            raise ValueError("line span needs start_line and end_line")
+        new_content = item.get("new_content", "")
+        if not isinstance(new_content, str):
+            raise ValueError("new_content must be a string")
+        summary = replace_range(
+            path, item.get("start_line"), item.get("end_line"), new_content
+        )
+        return "replace_range", path.strip().replace("\\", "/")
+    raise ValueError("patch needs search or a line span")
+
+
 def list_dir(rel_path: str = ".") -> str:
     """List a workspace directory. Bounded, no symlink follow, no path escape.
 

@@ -310,31 +310,31 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 
 ## Step 10 — insert_at_line
 
-**Status:** eligible. Step 9 signed off. Not started. Needs its own instruction.
+**Status:** signed off 2026-10-24 by "sign off". Catalog loaded `insert_at_line`. Disk check passed (`fails 0`). Does not start step 11.
 
-**Add:** `insert_at_line(path, line_number, content)` only. Inserts before the given 1-based line. Returns a summary.
+**Add:** `insert_at_line(path, line_number, content)` only. Inserts before the given 1-based line. Returns a summary. Function is in `cos/tools_impl.py`. Name, description, and schema are in `cos/tool_catalog.json`. No dispatcher name chain.
 
 **Does not add:** `replace_range`, `apply_patches`, or anything in §3.4–§3.7.
 
 **Gates:** same as step 9. An out-of-range line errors and does not write. Newline style is preserved. No CR CR LF.
 
-**Verify:** insert before line 1, insert in the middle, refuse an out-of-range line, refuse `cos/tasks.md`. CRLF stays CRLF. Then you sign off.
+**Verify:** insert before line 1, insert in the middle, insert at end-plus-one, refuse an out-of-range line, refuse `cos/tasks.md`. CRLF stays CRLF. `protocol/step10_self_test.py` exited 0 (`fails 0`). Do not stage that script. Then you sign off.
 
 ## Step 11 — replace_range
 
-**Status:** booked. Blocked on step 10 sign-off. Not started by this booking.
+**Status:** signed off 2026-10-24 by "sign-off". Catalog loaded `replace_range`. Disk check passed (`fails 0`). Does not start step 12.
 
-**Add:** `replace_range(path, start_line, end_line, new_content)` only. Replaces the inclusive line span. Returns a summary.
+**Add:** `replace_range(path, start_line, end_line, new_content)` only. Replaces the inclusive line span. Returns a summary. Function is in `cos/tools_impl.py`. Name, description, and schema are in `cos/tool_catalog.json`. No dispatcher name chain.
 
 **Does not add:** `apply_patches` or anything in §3.4–§3.7.
 
-**Gates:** same as step 9. An inverted or out-of-range span errors and does not write. Newline style is preserved.
+**Gates:** same as step 9. An inverted or out-of-range span errors and does not write. Newline style is preserved. No CR CR LF.
 
-**Verify:** replace a middle span, refuse an inverted span, refuse `cos/tasks.md`. Then you sign off.
+**Verify:** replace a middle span, refuse an inverted span, refuse `cos/tasks.md`. CRLF stays CRLF. `protocol/step11_self_test.py` exited 0 (`fails 0`). Do not stage that script. Then you sign off.
 
 ## Step 12 — apply_patches
 
-**Status:** booked. Blocked on step 11 sign-off. Not started by this booking.
+**Status:** signed off 2026-10-24 by "sign off". Catalog loaded `apply_patches`. Disk check passed (`fails 0`). Does not start a later slice.
 
 **Add:** `apply_patches(patches)` only. `patches` is a list of `{path, search, replace}` or `{path, start_line, end_line, new_content}`. Applied sequentially. Returns a combined summary. Stops on first error and reports what succeeded.
 
@@ -342,7 +342,7 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 
 **Gates:** each patch obeys the same path and `cos/tasks.md` rules. A failed later patch does not roll back earlier successes; the summary names them. Cap stays off.
 
-**Verify:** two successful patches, then a third that fails and stops. A `cos/tasks.md` patch does not write. Then you sign off.
+**Verify:** two successful patches, then a third that fails and stops. A `cos/tasks.md` patch does not write. `protocol/step12_self_test.py` exited 0 (`fails 0`). Do not stage that script. Then you sign off.
 
 ## Grok API retry
 
@@ -356,8 +356,7 @@ Signed off 2026-10-23 by "sign off". The earlier sign-off died on SSL before it 
 
 ## What booking steps 9–12 does not do
 
-- Does not add `insert_at_line`, `replace_range`, or `apply_patches`. Step 9 is signed off. `append_file` is live.
-- Does not start step 10. That needs its own instruction.
+- Steps 9–12 are signed off. `append_file`, `insert_at_line`, `replace_range`, and `apply_patches` are live. This booking does not start a later slice.
 - Does not start §3.4 (`copy_file`, `move_file`, `create_files`, `file_set_hash`). Those are multi-file utilities, not this slice.
 - Does not start context tools, §3.6, §3.7, or the Claude client.
 - Does not restore the 12,000-character tool-result cap.
