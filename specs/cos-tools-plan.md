@@ -298,7 +298,7 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 
 ## Step 9 — append_file
 
-**Status:** booked 2026-10-23 by "Lock on the next slice as your Remaining writes". Next eligible. Not started. Needs its own instruction, for example "do step 9".
+**Status:** signed off 2026-10-23 by "sign off". Restart loaded `append_file`. Disk check passed (`fails 0`). Does not start step 10.
 
 **Add:** `append_file(path, content)` only. Creates the file if missing. Returns a summary. Additive. The live tools stay, including `write_file` and `patch_file`.
 
@@ -310,7 +310,7 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 
 ## Step 10 — insert_at_line
 
-**Status:** booked. Blocked on step 9 sign-off. Not started by this booking.
+**Status:** eligible. Step 9 signed off. Not started. Needs its own instruction.
 
 **Add:** `insert_at_line(path, line_number, content)` only. Inserts before the given 1-based line. Returns a summary.
 
@@ -344,17 +344,49 @@ Add one bounded tool, `run_check`, so a written self-test can be run and correct
 
 **Verify:** two successful patches, then a third that fails and stops. A `cos/tasks.md` patch does not write. Then you sign off.
 
+## Grok API retry
+
+Signed off 2026-10-24 by "sign-off". Restart loaded `_post_grok`. Disk check passed (`fails 0`). Does not start step 10.
+
+`_post_grok` is the only `requests.post` to the Grok URL. It retries SSL, connection drop, timeout, 429, 500, 502, 503, 504, and an empty `choices` list. Four attempts. Sleeps 2s, 4s, 8s. 401, 403, and other 4xx fail on the first try. A retry stays inside the same tool round. It does not log the key. Disk check `protocol/step_retry_self_test.py` exited 0 (`fails 0`). Do not stage that script.
+
 ## Round cap 40
 
 Signed off 2026-10-23 by "sign off". The earlier sign-off died on SSL before it could record. `MAX_TOOL_ROUNDS` is 40 in `cos/cos.py`. Not live until restart. Same stop rules: a hit still asks for one no-tools final answer; a successful push still ends the turn. Does not start step 9. Does not restore the 12,000-character tool-result cap.
 
 ## What booking steps 9–12 does not do
 
-- Does not add a tool. The later round-cap write is recorded above; it is not step 9.
-- Does not add `append_file`, `insert_at_line`, `replace_range`, or `apply_patches`.
-- Does not start step 9. That needs its own instruction, for example "do step 9".
+- Does not add `insert_at_line`, `replace_range`, or `apply_patches`. Step 9 is signed off. `append_file` is live.
+- Does not start step 10. That needs its own instruction.
 - Does not start §3.4 (`copy_file`, `move_file`, `create_files`, `file_set_hash`). Those are multi-file utilities, not this slice.
 - Does not start context tools, §3.6, §3.7, or the Claude client.
+- Does not restore the 12,000-character tool-result cap.
+- Does not commit or push.
+- Does not start `closed-loop` or `routing-load`.
+- Does not start the external tool catalog. That is step 13. Booking it does not implement it.
+
+## Step 13 — External tool catalog
+
+**Status:** signed off 2026-10-23 by "sign off". Restart loaded the catalog. Disk check fails 0. Does not start step 10.
+
+**Why.** Tool bodies reload from `cos/tools_impl.py` on each call. The catalog does not. `TOOLS`, the `execute_tool` name chain, and the system-prompt tool list are built once in `cos/cos.py`. That is why step 9 had to edit the dispatcher to register `append_file`, and why that registration is not live until restart.
+
+**Written:** `cos/tool_catalog.json` (version 1, 17 tools). `load_tool_catalog` reads it before each Grok round, not only at startup. A bad load keeps the last good list, else the in-process `TOOLS` fallback. It does not drop tools. Catalog dispatch is in `cos/cos.py` (`_dispatch_tool`, `_bind_tool_args`). A catalog name calls the same name in the reloaded `cos/tools_impl.py`. `git` and `handoff` stay special. Signed off 2026-10-24 by "sign-off". Restart loaded it. Disk check fails 0. Does not start step 10.
+
+**Does not add:** a new file tool, `run_command`, a Claude client, or a reload of `cos/cos.py` itself. A write to the dispatcher still needs one restart. `run_check` still refuses anything under `cos/`.
+
+**Order:** next after the remaining-writes slice. It does not jump ahead of step 9 sign-off, and it does not start steps 10–12. Those stay in order.
+
+**Gates:** ask-first still applies. Existing tools stay, same names and gates. Cap stays off. No shell. No commit from this booking.
+
+**Verify, when implemented:** a catalog edit is visible on the next Grok round without restarting. A bad catalog file does not drop the last good list. `append_file` and the sixteen earlier tools stay registered. Then you sign off.
+
+## What booking step 13 does not do
+
+- Does not write the catalog file. Does not edit `cos/cos.py` or `cos/tools_impl.py`.
+- Does not make `append_file` live. That still needs a restart, then a sign-off. Sign-off does not start step 10.
+- Does not start steps 10–12. Each still needs the previous sign-off and its own instruction.
+- Does not start §3.4, context tools, §3.6, §3.7, or the Claude client.
 - Does not restore the 12,000-character tool-result cap.
 - Does not commit or push.
 - Does not start `closed-loop` or `routing-load`.

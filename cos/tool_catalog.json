@@ -1,0 +1,436 @@
+{
+  "version": 1,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "list_dir",
+        "description": "List files and directories in the COS workspace. Use this before guessing paths. Path is workspace-relative; pass '.' to list the workspace root. Returns workspace-relative paths and file sizes. Does not follow symlinks. Does not expand .git, __pycache__, .venv, node_modules, or .idea. Depth and entry count are capped; pass a narrower path if truncated.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative directory. Use '.' for the workspace root."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file from the COS workspace by relative path. Path must stay inside the workspace (example: cos/cos.py, specs/META-COS.md). Full file on disk. The tool-result character cap stays off until partial IO is verified, so the text returned is the full file. If a result still says TRUNCATED, it is not the whole file. Prefer file_info, file_outline, or a partial read for a large file. Partial reads do not replace this tool.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Create or replace a UTF-8 text file in the workspace. Content is the complete raw file body, not a diff and not markdown-fenced. Parent directories are created if needed. Path must stay inside the workspace. Do not use this for cos/tasks.md; use update_task.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path to write."
+            },
+            "content": {
+              "type": "string",
+              "description": "Complete new file content."
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "append_file",
+        "description": "Append UTF-8 text to one workspace file. Creates the file if missing. Does not replace the file. Does not replace write_file or patch_file. Does not update cos/tasks.md. Not insert_at_line, not replace_range, not apply_patches. Keeps the file newline style. Does not turn CRLF into CR CR LF. A new file uses LF.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path. Not cos/tasks.md."
+            },
+            "content": {
+              "type": "string",
+              "description": "Text to append. Not a full-file replacement."
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_task",
+        "description": "Add or update one task in cos/tasks.md. id is a short slug (lowercase letters, digits, hyphens). status is open, doing, blocked, or done. title is required when creating a task. note is an optional one-line reason, appended to the task. At most one task may be doing; setting doing moves any other doing task back to open. Does not commit or push.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Task slug, e.g. project-spec."
+            },
+            "status": {
+              "type": "string",
+              "description": "open, doing, blocked, or done."
+            },
+            "title": {
+              "type": "string",
+              "description": "Short task title. Required for a new id."
+            },
+            "note": {
+              "type": "string",
+              "description": "Optional one-line note."
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git",
+        "description": "Bounded git against the workspace repo. Not a shell. Actions: status, diff, log, add, commit, push. status/diff/log need no approval. add takes explicit workspace paths. commit requires message plus the phrase 'approve git commit' in the current user directive. push requires the phrase 'approve git push' in the current user directive. At most one commit and one push per user turn. A successful push ends the turn; do not chase a clean tree after it. remote defaults to origin, branch to main. No extra flags, no force, no config.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "description": "status, diff, log, add, commit, or push."
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Workspace-relative paths for add, or optional path limit for diff."
+            },
+            "message": {
+              "type": "string",
+              "description": "Commit message. Required for commit. One line, no newlines."
+            },
+            "remote": {
+              "type": "string",
+              "description": "Push remote. Default origin. Letters, digits, dot, underscore, hyphen."
+            },
+            "branch": {
+              "type": "string",
+              "description": "Push branch. Default main. No refs/heads prefix, no force."
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "handoff",
+        "description": "Emit a self-contained Claude hand-off prompt for the user to paste into a VS Code Claude session. Does not call Claude. Use for heavy implementation.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "task": {
+              "type": "string",
+              "description": "Complete task description for Claude."
+            }
+          },
+          "required": [
+            "task"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_info",
+        "description": "Return size_bytes, line_count, mtime_iso, and sha256 for one workspace file. Does not return file content. Path must stay inside the workspace. Use this before read_file when the file may be large. Does not replace read_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_outline",
+        "description": "Return a structural summary of one workspace file. Markdown: headings with line numbers. JSON: top-level keys. Python and Kotlin: class and function names with line numbers. Other text: first and last few lines. Does not return the file body. Path must stay inside the workspace. Does not replace read_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file_range",
+        "description": "Read an inclusive 1-based line range from one workspace text file. Returns those lines plus 'lines X-Y of Z'. Does not return the whole file. An out-of-range or inverted range errors. A range wider than 400 lines errors. Path must stay inside the workspace. Does not replace read_file. Not search_files. Not patch_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            },
+            "start_line": {
+              "type": "integer",
+              "description": "First line to return. 1-based. Inclusive."
+            },
+            "end_line": {
+              "type": "integer",
+              "description": "Last line to return. 1-based. Inclusive."
+            }
+          },
+          "required": [
+            "path",
+            "start_line",
+            "end_line"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file_head",
+        "description": "Read the first n lines of one workspace text file. Default n is 40. Max n is 400. Returns those lines plus 'lines X-Y of Z'. Does not replace read_file. Path must stay inside the workspace.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            },
+            "n": {
+              "type": "integer",
+              "description": "Number of lines from the start. Default 40. Max 400."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file_tail",
+        "description": "Read the last n lines of one workspace text file. Default n is 40. Max n is 400. Returns those lines plus 'lines X-Y of Z'. Does not replace read_file. Path must stay inside the workspace.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            },
+            "n": {
+              "type": "integer",
+              "description": "Number of lines from the end. Default 40. Max 400."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_in_file",
+        "description": "Search one workspace text file for a literal pattern. Returns matching lines with context_lines of context (default 2, max 5). Does not search other files. Does not use regex. Path must stay inside the workspace. Does not replace read_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path."
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Literal text to find. Not a regex. Max 200 characters."
+            },
+            "context_lines": {
+              "type": "integer",
+              "description": "Lines of context before and after each match. Default 2. Max 5."
+            }
+          },
+          "required": [
+            "path",
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Search workspace text files for a literal pattern. Returns matching lines with context_lines of context (default 2, max 5). path defaults to '.'. Recursion is off unless recursive is true. Does not use regex. Does not expand .git, __pycache__, .venv, node_modules, or .idea. Does not replace search_in_file or list_dir. Not patch_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Literal text to find. Not a regex. Max 200 characters."
+            },
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file or directory. Default '.' ."
+            },
+            "context_lines": {
+              "type": "integer",
+              "description": "Lines of context before and after each match. Default 2. Max 5."
+            },
+            "recursive": {
+              "type": "boolean",
+              "description": "Search subdirectories. Default false."
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_files",
+        "description": "List workspace files matching a simple glob. path defaults to '.'. glob defaults to '*'. Recursion is off unless recursive is true. Returns workspace-relative paths. Does not follow symlinks. Does not expand .git, __pycache__, .venv, node_modules, or .idea. Does not replace list_dir. Not search_files. Not patch_file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative directory or file. Default '.' ."
+            },
+            "glob": {
+              "type": "string",
+              "description": "Simple glob: *, ?, and character classes. Default '*'. Not a regex."
+            },
+            "recursive": {
+              "type": "boolean",
+              "description": "Include subdirectories. Default false."
+            }
+          },
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "patch_file",
+        "description": "Literal search/replace in one workspace text file. If replace_all is false and the search occurs any number other than 1, return an error and do not write. A missing search does not write. Returns a short diff summary. Does not replace write_file. Does not update cos/tasks.md. Not apply_patches. Not a multi-file write. Keeps the file newline style. Does not turn CRLF into CR CR LF.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative file path. Not cos/tasks.md."
+            },
+            "search": {
+              "type": "string",
+              "description": "Literal text to find. Not a regex. Must be non-empty."
+            },
+            "replace": {
+              "type": "string",
+              "description": "Literal replacement. May be empty."
+            },
+            "replace_all": {
+              "type": "boolean",
+              "description": "Replace every occurrence. Default false. False requires exactly one match."
+            }
+          },
+          "required": [
+            "path",
+            "search",
+            "replace"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "run_check",
+        "description": "Run one workspace Python script as a bounded check. Command shape is python plus one workspace-relative script path and optional args that are not flags. shell=False. No cmd, no PowerShell, no git, no network. Timeout 60 seconds. Stdout and stderr are each capped at 12,000 characters. Refuses absolute paths, '..', and anything under cos/. Does not stage the script. Does not commit. Not a shell. Not run_command.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Workspace-relative script path. Not under cos/. No absolute path. No '..'."
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional args. Not flags. No leading dash. Max 8. Each max 200 characters."
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    }
+  ]
+}

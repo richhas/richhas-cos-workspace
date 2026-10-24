@@ -9,9 +9,10 @@ from cos/context.md plus a compact tail of event_log.jsonl.
 Normal user messages run an agentic tool-calling loop (max 40 rounds).
 Tools: list_dir, read_file, write_file, update_task, git, handoff,
 file_info, file_outline, read_file_range, read_file_head, read_file_tail,
-search_in_file, search_files, list_files, patch_file, run_check.
+search_in_file, search_files, list_files, patch_file, append_file, run_check.
 run_check runs python on one workspace script. It is not a shell.
 patch_file is one unique literal match and a short diff. It does not replace write_file.
+append_file appends text and creates the file if missing. It does not replace write_file.
 Open work lives in cos/tasks.md and is loaded into every Grok call.
 Console output is wrapped to the terminal width so long replies do not overflow.
 
@@ -38,6 +39,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,6 +51,7 @@ LOG = Path(__file__).resolve().parent / "event_log.jsonl"
 CONTEXT = Path(__file__).resolve().parent / "context.md"
 TASKS = Path(__file__).resolve().parent / "tasks.md"
 POLICY = Path(__file__).resolve().parent / "prompts" / "ask-first.md"
+CATALOG = Path(__file__).resolve().parent / "tool_catalog.json"
 
 GROK_API_KEY = os.environ.get("GROK_API_KEY")
 GROK_URL = "https://api.x.ai/v1/chat/completions"
@@ -62,6 +65,11 @@ MAX_ENTRY_CHARS = 4000
 # are executed before the next call. Stop at a final answer or this cap.
 # The cap does not include the one no-tools summary call used when it is hit.
 MAX_TOOL_ROUNDS = 40
+# Transient Grok failures retry inside the same round. Not a new tool round.
+# 4 attempts, sleeps 2s, 4s, 8s. SSL, connection drop, 429, 503, empty choices.
+# 401, 403, and other 4xx fail immediately. Does not start step 10.
+GROK_RETRY_ATTEMPTS = 4
+GROK_RETRY_BASE_SEC = 2
 # Tool-result character cap stays off (user 2026-10-23).
 # None means _tool_result_text returns the full string.
 # Do not restore until partial IO is in place and the user verifies that.
@@ -163,12 +171,12 @@ AVAILABLE_COMMANDS = (
 AGENT_SYSTEM_EXTRA = (
     "Ask-first is locked (cos/prompts/ask-first.md). "
     "If the current directive is a question, statement, or observation, "
-    "do not call write_file, update_task, handoff, or git add/commit/push. "
+    "do not call write_file, append_file, update_task, handoff, or git add/commit/push. "
     "You may call list_dir, read_file, file_info, file_outline, "
     "read_file_range, read_file_head, read_file_tail, search_in_file, "
     "search_files, list_files, patch_file, and run_check "
     "only when a read is required to answer. "
-    "patch_file is a write. run_check runs a script. Do not call either while discussing. "
+    "patch_file is a write. append_file is a write. run_check runs a script. Do not call those while discussing. "
     "Do not start implied backlog work. Open tasks are not a work order. "
     "Tools for this turn: list_dir(path), read_file(path), write_file(path, content), "
     "update_task(id, status, title, note), git(action, paths, message, remote, branch), "
@@ -178,8 +186,9 @@ AGENT_SYSTEM_EXTRA = (
     "search_files(pattern, path, context_lines), "
     "list_files(path, glob, recursive), "
     "patch_file(path, search, replace, replace_all), "
+    "append_file(path, content), "
     "run_check(path, args). "
-    "file_info, file_outline, the partial reads, search_files, list_files, patch_file, and run_check are additive. "
+    "file_info, file_outline, the partial reads, search_files, list_files, patch_file, append_file, and run_check are additive. "
     "They do not replace read_file or write_file. "
     "patch_file is one file, one literal search. "
     "If replace_all is false and the search is not unique, it errors and does not write. "
@@ -197,7 +206,7 @@ AGENT_SYSTEM_EXTRA = (
     "It does not follow symlinks, does not expand .git, and is depth- and entry-capped. "
     "Use read_file and write_file to inspect and change files, and handoff to emit a Claude hand-off. "
     "Open work is in cos/tasks.md (also shown below when present). "
-    "Use update_task to add or change a task; do not rewrite cos/tasks.md with write_file or patch_file. "
+    "Use update_task to add or change a task; do not rewrite cos/tasks.md with write_file, append_file, or patch_file. "
     "Statuses: open, doing, blocked, done. At most one task may be doing. "
     "Mark a task doing before you start it and done only after the file change is written. "
     "Do that only when the current directive explicitly told you to do the work. "
@@ -230,7 +239,13 @@ AGENT_SYSTEM_EXTRA = (
     "write_file content must be the raw file body, with no markdown fences. "
     "The user sees only a one-line trace per tool call, not the tool result body, "
     "so your final answer must include the findings, decisions, and paths you changed. "
-    "When finished, reply with that concise final answer and no tool calls."
+    "When finished, reply with that concise final answer and no tool calls. "
+    "The tool catalog is loaded from cos/tool_catalog.json before every Grok round. "
+    "A catalog edit is visible on the next round without restarting. "
+    "A bad catalog file keeps the last good list. It does not drop tools. "
+    "A write to cos/cos.py still needs one restart. "
+    "A new tool name does not. Add it to cos/tool_catalog.json and "
+    "cos/tools_impl.py. The next call dispatches it. No dispatcher edit."
 )
 
 TOOLS = [
@@ -303,6 +318,33 @@ TOOLS = [
                     "content": {
                         "type": "string",
                         "description": "Complete new file content.",
+                    },
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "append_file",
+            "description": (
+                "Append UTF-8 text to one workspace file. Creates the file if missing. "
+                "Does not replace the file. Does not replace write_file or patch_file. "
+                "Does not update cos/tasks.md. Not insert_at_line, not replace_range, "
+                "not apply_patches. Keeps the file newline style. "
+                "Does not turn CRLF into CR CR LF. A new file uses LF."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Workspace-relative file path. Not cos/tasks.md.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Text to append. Not a full-file replacement.",
                     },
                 },
                 "required": ["path", "content"],
@@ -722,6 +764,9 @@ DEEP_CONTEXT_HEADER = "Deep context (persistent):"
 # Full meta-spec text, loaded once at process startup (not per API call).
 _META_COS_TEXT = None
 
+# Last good tool catalog. A bad load keeps this list. It does not drop tools.
+_LAST_GOOD_TOOLS = None
+
 # Per-turn git budget. Reset at the start of each tool loop. A successful
 # push sets stop_after_push so the loop returns without another model round.
 _TURN_GIT = {
@@ -762,6 +807,60 @@ def resolve_safe(rel_path: str) -> Path:
     if target != root and root not in target.parents:
         raise ValueError("Path escapes workspace root")
     return target
+
+
+def _grok_retryable(exc) -> bool:
+    """True only for transient transport or capacity failures.
+
+    401, 403, and other 4xx are not retried. A missing key is not retried.
+    """
+    if isinstance(exc, (
+        requests.exceptions.SSLError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    )):
+        return True
+    text = str(exc)
+    if "SSLError" in text or "SSLEOFError" in text:
+        return True
+    if "RemoteDisconnected" in text or "Connection aborted" in text:
+        return True
+    if "Grok response missing choices" in text:
+        return True
+    if "Grok response was not a JSON object" in text:
+        return True
+    resp = getattr(exc, "response", None)
+    status = getattr(resp, "status_code", None)
+    if status in (429, 500, 502, 503, 504):
+        return True
+    if " 429 " in text or " 503 " in text or " 502 " in text:
+        return True
+    if "resource-exhausted" in text or "Service Unavailable" in text:
+        return True
+    return False
+
+
+def _post_grok(headers, payload):
+    """POST once, retrying only transient failures. Returns the message dict.
+
+    Sleeps 2s, 4s, 8s between attempts. Does not log the key. Does not
+    count as a tool round. A non-retryable error raises on the first try.
+    """
+    last = None
+    for attempt in range(1, GROK_RETRY_ATTEMPTS + 1):
+        try:
+            r = requests.post(GROK_URL, headers=headers, json=payload, timeout=600)
+            r.raise_for_status()
+            return _message_from_response(r.json())
+        except Exception as e:
+            last = e
+            if attempt >= GROK_RETRY_ATTEMPTS or not _grok_retryable(e):
+                raise
+            delay = GROK_RETRY_BASE_SEC * (2 ** (attempt - 1))
+            emit(f"[grok] retry {attempt} in {delay}s: {_clip(str(e), 160)}")
+            time.sleep(delay)
+    raise last
 
 
 def _clip(text: str, limit: int) -> str:
@@ -1254,6 +1353,72 @@ def task_summary() -> str:
 
 
 
+def _validate_catalog(data):
+    """Return the tools list, or raise. Does not keep a partial list."""
+    if not isinstance(data, dict):
+        raise ValueError("catalog must be an object")
+    tools = data.get("tools")
+    if not isinstance(tools, list) or not tools:
+        raise ValueError("catalog tools must be a non-empty list")
+    names = []
+    for item in tools:
+        if not isinstance(item, dict) or item.get("type") != "function":
+            raise ValueError("catalog entry must be a function tool")
+        fn = item.get("function")
+        if not isinstance(fn, dict):
+            raise ValueError("catalog entry missing function")
+        name = fn.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("catalog tool name is required")
+        if name in names:
+            raise ValueError(f"duplicate catalog tool: {name}")
+        if not isinstance(fn.get("description"), str) or not fn["description"].strip():
+            raise ValueError(f"catalog tool {name} missing description")
+        params = fn.get("parameters")
+        if not isinstance(params, dict) or params.get("type") != "object":
+            raise ValueError(f"catalog tool {name} missing parameters")
+        names.append(name)
+    required = [
+        "list_dir", "read_file", "write_file", "append_file", "update_task",
+        "git", "handoff", "file_info", "file_outline", "read_file_range",
+        "read_file_head", "read_file_tail", "search_in_file", "search_files",
+        "list_files", "patch_file", "run_check",
+    ]
+    missing = [name for name in required if name not in names]
+    if missing:
+        raise ValueError("catalog missing tools: " + ", ".join(missing))
+    return tools
+
+
+def load_tool_catalog():
+    """Load cos/tool_catalog.json from disk. A bad load keeps the last good list.
+
+    Called before each Grok round, not only at startup. Does not reload
+    cos/cos.py. A write to this dispatcher still needs one restart.
+    A new tool name does not: catalog plus tools_impl is enough.
+    """
+    global _LAST_GOOD_TOOLS
+    try:
+        raw = CATALOG.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        tools = _validate_catalog(data)
+    except Exception as e:
+        emit(f"[tool] catalog load failed: {e}")
+        try:
+            log_event(
+                "catalog_load",
+                f"tool catalog load failed: {e}",
+                detail={"error": _clip(str(e), 300)},
+            )
+        except Exception:
+            pass
+        if _LAST_GOOD_TOOLS:
+            return _LAST_GOOD_TOOLS
+        return TOOLS
+    _LAST_GOOD_TOOLS = tools
+    return tools
+
+
 def _reload_tools():
     """Load cos/tools_impl.py from disk and bind this module's globals.
 
@@ -1270,7 +1435,16 @@ def _reload_tools():
             raise RuntimeError("cannot load cos/tools_impl.py")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        mod.bind(sys.modules[__name__])
+        # Bind the running module, not sys.modules[__name__]. A file-location
+        # import (the self-test uses "cos_dispatch") never registers that name.
+        host = sys.modules.get(__name__)
+        if host is None or getattr(host, "__file__", None) != __file__:
+            import types
+            host = types.ModuleType(__name__)
+            host.__dict__.update(globals())
+            host.__file__ = __file__
+            sys.modules[__name__] = host
+        mod.bind(host)
         sys.modules[name] = mod
         return mod
     except Exception as e:
@@ -1579,9 +1753,8 @@ def ask_grok(prompt: str, system: str = None, context_summary: str = None) -> st
     }
 
     try:
-        r = requests.post(GROK_URL, headers=headers, json=payload, timeout=600)
-        r.raise_for_status()
-        reply = r.json()["choices"][0]["message"]["content"]
+        message = _post_grok(headers, payload)
+        reply = _message_text(message)
     except Exception as e:
         _log_call(
             f"Grok API call failed: {e}",
@@ -1779,11 +1952,83 @@ def _parse_tool_args(raw):
 
 
 
+def _catalog_names():
+    """Names in the last good catalog, else the in-process TOOLS list."""
+    tools = _LAST_GOOD_TOOLS or TOOLS
+    names = []
+    for item in tools:
+        if not isinstance(item, dict):
+            continue
+        fn = item.get("function")
+        if isinstance(fn, dict) and isinstance(fn.get("name"), str):
+            names.append(fn["name"])
+    return names
+
+
+def _bind_tool_args(found, arguments):
+    """Map catalog argument names onto the function's parameter names.
+
+    The catalog is the public contract (path, id). The functions still use
+    rel_path and task_id. A name that already matches is left alone. An
+    unknown catalog key is not passed. This is not a new tool.
+    """
+    import inspect
+    params = inspect.signature(found).parameters
+    mapped = {}
+    for key, value in arguments.items():
+        if key in params:
+            mapped[key] = value
+            continue
+        if key == "path" and "rel_path" in params and "path" not in params:
+            mapped["rel_path"] = value
+            continue
+        if key == "id" and "task_id" in params and "id" not in params:
+            mapped["task_id"] = value
+            continue
+    return mapped
+
+
+def _dispatch_tool(impl, name, arguments):
+    """Call one catalog tool. Name comes from the catalog, not a frozen chain.
+
+    git maps to run_git. handoff stays in this process. Every other catalog
+    name calls the same name in the reloaded tools_impl module. Catalog
+    argument names are mapped onto the function parameters.
+    """
+    if name not in _catalog_names():
+        raise ValueError(f"unknown tool: {name}")
+    if name == "git":
+        action = str(arguments.get("action") or "").strip().lower()
+        message = arguments.get("message")
+        remote = arguments.get("remote")
+        branch = arguments.get("branch")
+        if not isinstance(message, str):
+            message = None
+        if not isinstance(remote, str):
+            remote = None
+        if not isinstance(branch, str):
+            branch = None
+        return impl.run_git(action, arguments.get("paths"), message, remote, branch)
+    if name == "handoff":
+        task = arguments.get("task")
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("task is required")
+        task = task.strip()
+        emit("[tool] handoff")
+        emit_handoff(task)
+        return "Claude hand-off prompt emitted to the user for task: " + _clip(task, 300)
+    found = getattr(impl, name, None)
+    if not callable(found):
+        raise ValueError(f"unknown tool: {name}")
+    return found(**_bind_tool_args(found, arguments))
+
+
 def execute_tool(name: str, arguments: dict, round_i: int) -> str:
     """Run one tool call against cos/tools_impl.py on disk. Never raises.
 
-    Reloads that file before the call. A failure in one tool returns an
-    error string. It does not unregister the others.
+    Reloads that file before the call. A catalog name with a matching
+    function runs without a dispatcher edit. A failure in one tool returns
+    an error string. It does not unregister the others.
     """
     if not isinstance(arguments, dict):
         arguments = {}
@@ -1792,204 +2037,16 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
         impl = _reload_tools()
         if impl is None:
             raise RuntimeError("cos/tools_impl.py is not loaded")
-
-        def fn(attr):
-            found = getattr(impl, attr, None)
-            if not callable(found):
-                raise ValueError(f"unknown tool: {name}")
-            return found
-
-        if name == "list_dir":
-            rel = str(arguments.get("path") or ".").strip() or "."
-            text = fn("list_dir")(rel)
-            nlines = text.count("\n") + (1 if text else 0)
-            emit(f"[tool] list_dir {rel} -> {nlines} lines")
-            log_event(
-                "tool_exec",
-                f"list_dir {rel}",
-                detail={"tool": name, "path": rel, "lines": nlines, "round": round_i},
-            )
-            return text
-        if name == "read_file":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            content = fn("read_file")(rel)
-            nbytes = len(content.encode("utf-8"))
-            emit(f"[tool] read_file {rel} -> {nbytes} bytes")
-            log_event(
-                "tool_exec",
-                f"read_file {rel}",
-                detail={"tool": name, "path": rel, "bytes": nbytes, "round": round_i},
-            )
-            return content
-        if name == "write_file":
-            rel = str(arguments.get("path") or "").strip()
-            content = arguments.get("content")
-            if not rel:
-                raise ValueError("path is required")
-            if not isinstance(content, str):
-                raise ValueError("content must be a string")
-            norm = rel.replace("\\", "/").rstrip("/")
-            if norm in ("cos/tasks.md", "tasks.md"):
-                raise ValueError("use update_task for cos/tasks.md, not write_file")
-            fn("write_file")(rel, content)
-            nbytes = len(content.encode("utf-8"))
-            emit(f"[tool] write_file {rel} -> {nbytes} bytes")
-            log_event(
-                "tool_exec",
-                f"write_file {rel}",
-                detail={"tool": name, "path": rel, "bytes": nbytes, "round": round_i},
-            )
-            return f"Wrote {rel} ({nbytes} bytes)"
-        if name == "update_task":
-            task_id = str(arguments.get("id") or "").strip()
-            status = str(arguments.get("status") or "").strip()
-            title = arguments.get("title")
-            note = arguments.get("note")
-            if not isinstance(title, str):
-                title = None
-            if not isinstance(note, str):
-                note = None
-            rendered = fn("update_task")(task_id, status, title, note)
-            emit(f"[tool] update_task {task_id} -> {status}")
-            log_event(
-                "tool_exec",
-                f"update_task {task_id} -> {status}",
-                detail={"tool": name, "id": task_id, "status": status, "round": round_i},
-            )
-            return rendered
-        if name == "git":
-            action = str(arguments.get("action") or "").strip().lower()
-            paths = arguments.get("paths")
-            message = arguments.get("message")
-            remote = arguments.get("remote")
-            branch = arguments.get("branch")
-            if not isinstance(message, str):
-                message = None
-            if not isinstance(remote, str):
-                remote = None
-            if not isinstance(branch, str):
-                branch = None
-            text = fn("run_git")(action, paths, message, remote, branch)
-            nlines = text.count("\n") + (1 if text else 0)
-            emit(f"[tool] git {action} -> {nlines} lines")
-            log_event(
-                "tool_exec",
-                f"git {action}",
-                detail={"tool": name, "action": action, "lines": nlines, "round": round_i},
-            )
-            return text
-        if name == "handoff":
-            task = arguments.get("task")
-            if not isinstance(task, str) or not task.strip():
-                raise ValueError("task is required")
-            task = task.strip()
-            emit("[tool] handoff")
-            emit_handoff(task)
-            log_event(
-                "tool_exec",
-                "handoff",
-                detail={"tool": name, "round": round_i, "task_preview": _clip(task, 200)},
-            )
-            return "Claude hand-off prompt emitted to the user for task: " + _clip(task, 300)
-        if name == "file_info":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("file_info")(rel)
-            emit(f"[tool] file_info {rel}")
-            log_event("tool_exec", f"file_info {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "file_outline":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("file_outline")(rel)
-            nlines = text.count("\n") + (1 if text else 0)
-            emit(f"[tool] file_outline {rel} -> {nlines} lines")
-            log_event(
-                "tool_exec",
-                f"file_outline {rel}",
-                detail={"tool": name, "path": rel, "lines": nlines, "round": round_i},
-            )
-            return text
-        if name == "read_file_range":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("read_file_range")(rel, arguments.get("start_line"), arguments.get("end_line"))
-            emit(f"[tool] read_file_range {rel}")
-            log_event("tool_exec", f"read_file_range {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "read_file_head":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("read_file_head")(rel, arguments.get("n", PARTIAL_READ_DEFAULT_N))
-            emit(f"[tool] read_file_head {rel}")
-            log_event("tool_exec", f"read_file_head {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "read_file_tail":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("read_file_tail")(rel, arguments.get("n", PARTIAL_READ_DEFAULT_N))
-            emit(f"[tool] read_file_tail {rel}")
-            log_event("tool_exec", f"read_file_tail {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "search_in_file":
-            rel = str(arguments.get("path") or "").strip()
-            pattern = arguments.get("pattern")
-            if not rel:
-                raise ValueError("path is required")
-            if not isinstance(pattern, str):
-                raise ValueError("pattern is required")
-            text = fn("search_in_file")(rel, pattern, arguments.get("context_lines", 2))
-            emit(f"[tool] search_in_file {rel}")
-            log_event("tool_exec", f"search_in_file {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "search_files":
-            pattern = arguments.get("pattern")
-            if not isinstance(pattern, str):
-                raise ValueError("pattern is required")
-            rel = str(arguments.get("path") or ".").strip() or "."
-            text = fn("search_files")(pattern, rel, arguments.get("context_lines", 2), arguments.get("recursive", False))
-            emit(f"[tool] search_files {rel}")
-            log_event("tool_exec", f"search_files {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "list_files":
-            rel = str(arguments.get("path") or ".").strip() or "."
-            glob = arguments.get("glob", "*")
-            if glob is None:
-                glob = "*"
-            if not isinstance(glob, str):
-                raise ValueError("glob must be a string")
-            text = fn("list_files")(rel, glob, arguments.get("recursive", False))
-            emit(f"[tool] list_files {rel}")
-            log_event("tool_exec", f"list_files {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "patch_file":
-            rel = str(arguments.get("path") or "").strip()
-            search = arguments.get("search")
-            replace = arguments.get("replace")
-            if not isinstance(search, str):
-                raise ValueError("search is required")
-            if not isinstance(replace, str):
-                raise ValueError("replace is required")
-            text = fn("patch_file")(rel, search, replace, arguments.get("replace_all", False))
-            emit(f"[tool] patch_file {rel}")
-            log_event("tool_exec", f"patch_file {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        if name == "run_check":
-            rel = str(arguments.get("path") or "").strip()
-            if not rel:
-                raise ValueError("path is required")
-            text = fn("run_check")(rel, arguments.get("args"))
-            emit(f"[tool] run_check {rel}")
-            log_event("tool_exec", f"run_check {rel}", detail={"tool": name, "path": rel, "round": round_i})
-            return text
-        raise ValueError(f"unknown tool: {name}")
+        text = _dispatch_tool(impl, name, arguments)
+        if not isinstance(text, str):
+            text = str(text)
+        emit(f"[tool] {label}")
+        log_event(
+            "tool_exec",
+            f"{label}",
+            detail={"tool": name, "round": round_i},
+        )
+        return text
     except Exception as e:
         err = _clip(str(e), 300)
         emit(f"[tool] {label} -> error: {err}")
@@ -1999,6 +2056,7 @@ def execute_tool(name: str, arguments: dict, round_i: int) -> str:
             detail={"tool": name, "error": err, "round": round_i},
         )
         return f"Error: {e}"
+
 
 
 def _finish_without_tools(messages, headers, context_bytes, truncated, reason: str) -> str:
@@ -2022,9 +2080,7 @@ def _finish_without_tools(messages, headers, context_bytes, truncated, reason: s
         "temperature": 0.2,
     }
     try:
-        r = requests.post(GROK_URL, headers=headers, json=payload, timeout=600)
-        r.raise_for_status()
-        message = _message_from_response(r.json())
+        message = _post_grok(headers, payload)
     except Exception as e:
         log_event(
             "grok_call",
@@ -2145,15 +2201,13 @@ def ask_grok_with_tools(user_input: str) -> str:
             payload = {
                 "model": "grok-4.7",
                 "messages": messages,
-                "tools": TOOLS,
+                "tools": load_tool_catalog(),
                 "tool_choice": "auto",
                 "temperature": 0.2,
             }
             preview = user_input if round_i == 1 else f"tool-results round {round_i}"
             try:
-                r = requests.post(GROK_URL, headers=headers, json=payload, timeout=600)
-                r.raise_for_status()
-                message = _message_from_response(r.json())
+                message = _post_grok(headers, payload)
             except Exception as e:
                 err_text = str(e)
                 resp = getattr(e, "response", None)
@@ -2376,7 +2430,7 @@ def main():
             "context_file_bytes": ctx_bytes,
             "tasks_file_bytes": task_bytes,
             "tool_result_char_limit": TOOL_RESULT_CHAR_LIMIT,
-            "tools": [t["function"]["name"] for t in TOOLS],
+            "tools": [t["function"]["name"] for t in load_tool_catalog()],
         },
     )
     append_context(

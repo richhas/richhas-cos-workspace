@@ -969,6 +969,64 @@ def patch_file(rel_path: str, search: str, replace: str, replace_all=False) -> s
     return summary
 
 
+def append_file(rel_path: str, content: str) -> str:
+    """Append text to one workspace file. Creates the file if missing.
+
+    Does not replace write_file or patch_file. Does not update cos/tasks.md.
+    Not insert_at_line, not replace_range, not apply_patches.
+    Content is matched as LF text and written in the file's newline style.
+    A new file uses LF. A CRLF file stays CRLF, not CR CR LF.
+    """
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ValueError("path is required")
+    if not isinstance(content, str):
+        raise ValueError("content must be a string")
+    raw = rel_path.strip().replace("\\", "/").rstrip("/")
+    norm = raw.lstrip("./") or raw
+    if norm in ("cos/tasks.md", "tasks.md"):
+        raise ValueError("use update_task for cos/tasks.md, not append_file")
+    target = resolve_safe(raw)
+    if target.exists() and target.is_symlink():
+        raise ValueError("refusing to follow a symlink")
+    if target.exists() and not target.is_file():
+        raise ValueError(f"Not a file: {raw}")
+    created = not target.exists()
+    if created:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        original = b""
+        newline = "\n"
+    else:
+        original = target.read_bytes()
+        newline = _newline_style(original)
+    addition = _from_lf(_to_lf(content), newline)
+    payload = original + addition.encode("utf-8")
+    if b"\r\r\n" in payload:
+        raise ValueError("refusing to write doubled CR; file not written")
+    target.write_bytes(payload)
+    shown = raw.lstrip("./") or raw
+    summary = "\n".join([
+        f"path: {shown}",
+        f"created: {str(created).lower()}",
+        f"appended_bytes: {len(addition.encode('utf-8'))}",
+        f"size_bytes: {len(payload)}",
+        f"newline: {newline!r}",
+    ])
+    log_event(
+        "file_append",
+        f"Appended {raw}",
+        detail={
+            "path": raw,
+            "created": created,
+            "appended_bytes": len(addition.encode("utf-8")),
+            "bytes": len(payload),
+        },
+    )
+    append_context(
+        f"- File change: appended `{raw}` ({len(addition.encode('utf-8'))} bytes)"
+    )
+    return summary
+
+
 def list_dir(rel_path: str = ".") -> str:
     """List a workspace directory. Bounded, no symlink follow, no path escape.
 
